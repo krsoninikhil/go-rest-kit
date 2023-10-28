@@ -7,11 +7,11 @@ type AppError interface {
 }
 
 type baseError struct {
-	Err      error
+	Cause    error
 	Resource string
 }
 
-func (e baseError) Error() string { return e.Err.Error() }
+func (e baseError) Error() string { return e.Cause.Error() }
 
 func (e baseError) httpResponse(title string) map[string]any {
 	return map[string]any{

@@ -42,7 +42,6 @@ func (c *NestedController[M, S, R]) Create(ctx *gin.Context, p NestedParam, req 
 	m := req.ToModel()
 	m = m.SetParentID(p.ParentID)
 	res, err := c.Svc.Create(ctx, m)
-	fmt.Printf("res: %+v\n", res)
 
 	var response S
 	response, ok := response.FillFromModel(*res).(S)

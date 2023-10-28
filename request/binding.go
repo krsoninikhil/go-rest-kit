@@ -28,7 +28,6 @@ func BindAll[R, S any](handler bindedHandlerFunc[R, S]) gin.HandlerFunc {
 // Uri params could be mentioned required and validation would fail if
 // looked in query param or elsewhere
 func bindRequestParams[P, R any](c *gin.Context, params *P, req *R) error {
-
 	if err := c.ShouldBindUri(params); err != nil {
 		return errors.WithStack(err)
 	}

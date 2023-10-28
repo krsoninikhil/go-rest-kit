@@ -13,7 +13,7 @@ type NotFoundError struct {
 func NewNotFoundError(resource string) NotFoundError {
 	return NotFoundError{baseError{
 		Resource: resource,
-		Err:      errors.New("not found"),
+		Cause:    errors.New("not found"),
 	}}
 }
 

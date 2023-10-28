@@ -13,7 +13,7 @@ type PermissionError struct {
 func NewPermissionError(resource string) PermissionError {
 	return PermissionError{baseError{
 		Resource: resource,
-		Err:      errors.New("permission error"),
+		Cause:    errors.New("permission error"),
 	}}
 }
 

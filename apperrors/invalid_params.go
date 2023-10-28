@@ -11,7 +11,7 @@ type InvalidParamsError struct {
 func NewInvalidParamsError(resource string, err error) InvalidParamsError {
 	return InvalidParamsError{baseError{
 		Resource: resource,
-		Err:      err,
+		Cause:    err,
 	}}
 }
 

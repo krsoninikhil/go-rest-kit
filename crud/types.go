@@ -17,7 +17,7 @@ type (
 	}
 
 	ResourceParam struct {
-		ID int `uri:"id" binding:"required"`
+		ID int `uri:"parentID" binding:"required"`
 	}
 
 	ListParam struct {
