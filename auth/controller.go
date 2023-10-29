@@ -12,7 +12,7 @@ type (
 		Initiate()
 		Verify()
 	}
-	OTPSvc interface {
+	OTPSvcI interface {
 		Send(ctx context.Context, phone string) (OTPStatus, error)
 		Verify(ctx context.Context, phone, otp string) error
 	}
@@ -55,7 +55,6 @@ type (
 	OTPStatus struct {
 		RetryAfter  int
 		AttemptLeft int
-		Status      string
 	}
 	Token struct {
 		AccessToken  string
@@ -66,7 +65,7 @@ type (
 
 type Controller struct {
 	authSvc AuthService
-	otpSvc  OTPSvc
+	otpSvc  OTPSvcI
 	// googleSvc OAuthProvider
 	// appleSvc  OAuthProvider
 	// googleGSI AuthGSI
