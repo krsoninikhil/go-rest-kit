@@ -8,7 +8,7 @@ import (
 )
 
 type UserDao interface {
-	Create(ctx context.Context, phone string) (user, error)
+	Create(ctx context.Context, phone string) (userID int, err error)
 }
 
 type TokenSvc interface {
@@ -25,10 +25,11 @@ type Service struct {
 	tokenSvc TokenSvc
 }
 
-func NewService(config Config, userDao UserDao, tokenSvc TokenSvc) *Service {
-	if tokenSvc == nil {
-		tokenSvc = newClaimsSvc(config.accessTokenValidity(), config.refreshTokenValidity())
-	}
+func NewService(config Config, userDao UserDao) *Service {
+	tokenSvc := newClaimsSvc(
+		config.accessTokenValidity(),
+		config.refreshTokenValidity(),
+	)
 	return &Service{
 		config:   config,
 		userDao:  userDao,
@@ -37,12 +38,12 @@ func NewService(config Config, userDao UserDao, tokenSvc TokenSvc) *Service {
 }
 
 func (s *Service) UpsertUser(ctx context.Context, phone string) (*Token, error) {
-	u, err := s.userDao.Create(ctx, phone)
+	userID, err := s.userDao.Create(ctx, phone)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create user: %v", err)
 	}
 
-	return s.generateToken(ctx, fmt.Sprintf("%d", u.ID))
+	return s.generateToken(ctx, fmt.Sprintf("%d", userID))
 }
 
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {

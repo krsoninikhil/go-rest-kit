@@ -6,11 +6,6 @@ type (
 	CtxKey string
 )
 
-type user struct {
-	ID    int
-	Phone string
-}
-
 const (
 	CtxKeyTokenClaims CtxKey = "tokenClaims"
 	audienceLogin     string = "login"

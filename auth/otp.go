@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"context"
 	"math/rand"
 	"time"
 
+	"github.com/krsoninikhil/go-rest-kit/cache"
 	"github.com/pkg/errors"
 )
 
@@ -38,13 +40,11 @@ func NewOTPSvc(config OTPConfig, smsProvider smsProvider, cache cacheClient) otp
 	}
 }
 
-var ErrKeyNotFound = errors.New("key not found")
-
-func (s otpSvc) Send(phone string) (*OTPStatus, error) {
+func (s otpSvc) Send(ctx context.Context, phone string) (*OTPStatus, error) {
 	attempt := 1
 	lastOTPMeta, err := s.cache.Get(phone)
 	if err != nil {
-		if !errors.Is(err, ErrKeyNotFound) {
+		if !errors.Is(err, cache.ErrKeyNotFound) {
 			return nil, errors.Wrap(err, "unable to get last otp")
 		}
 	} else {
@@ -81,6 +81,28 @@ func (s otpSvc) Send(phone string) (*OTPStatus, error) {
 		RetryAfter:  s.config.RetryAfter,
 		AttemptLeft: s.config.MaxAttempts - otpMeta.Attempt,
 	}, nil
+}
+
+func (s otpSvc) Verify(ctx context.Context, phone, otp string) error {
+	lastOTPMeta, err := s.cache.Get(phone)
+	if err != nil {
+		return errors.Wrap(err, "unable to get last otp")
+	}
+
+	lastOTP, ok := lastOTPMeta.(otpMetaData)
+	if !ok {
+		return errors.Wrap(err, "invalid last otp")
+	}
+
+	if time.Since(lastOTP.SentAt) >= s.config.validity() {
+		return errors.Wrap(err, "otp expired")
+	}
+
+	if lastOTP.OTP != otp {
+		return errors.Wrap(err, "invalid otp")
+	}
+
+	return nil
 }
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))

@@ -13,7 +13,7 @@ type (
 		Verify()
 	}
 	OTPSvcI interface {
-		Send(ctx context.Context, phone string) (OTPStatus, error)
+		Send(ctx context.Context, phone string) (*OTPStatus, error)
 		Verify(ctx context.Context, phone, otp string) error
 	}
 	AuthGSI interface {
@@ -69,6 +69,13 @@ type Controller struct {
 	// googleSvc OAuthProvider
 	// appleSvc  OAuthProvider
 	// googleGSI AuthGSI
+}
+
+func NewController(authSvc AuthService, otpSvc OTPSvcI) *Controller {
+	return &Controller{
+		authSvc: authSvc,
+		otpSvc:  otpSvc,
+	}
 }
 
 func (a *Controller) SendOTP(c *gin.Context, r SendOTPRequest) (*SendOTPResponse, error) {
