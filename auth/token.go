@@ -66,7 +66,7 @@ func (s *claimsSvc) ValiateRefreshTokenClaims(claims jwt.Claims) (string, error)
 	if stdClaims.Audience != audienceRefresh {
 		return "", fmt.Errorf("invalid token audience")
 	}
-	return stdClaims.Audience, nil
+	return stdClaims.Subject, nil
 }
 
 func (s *claimsSvc) VerifyToken(token string, signingKey string) (*jwt.Token, error) {

@@ -1,49 +1,51 @@
 package twilio
 
-import "github.com/pkg/errors"
-
-package twilio
-
 import (
 	"fmt"
-	"net/http"
-	"strings"
+	"log"
 
 	"github.com/dghubble/sling"
+	"github.com/pkg/errors"
 )
 
 type Config struct {
-	AccountSid string 
+	AccountSID string
 	AuthToken  string `log:"-"`
 	FromNumber string
 }
 
-type Twilio struct {
+type Client struct {
 	config Config
-	sling *sling.Sling
+	sling  *sling.Sling
 }
 
-func NewTwilio(config Config) *Twilio {
-	base := sling.New().Base("https://api.twilio.com/2010-04-01/Accounts/" + config.AccountSid + "/")
+func NewClient(config Config) *Client {
+	base := sling.New().Base("https://api.twilio.com/2010-04-01/Accounts/" + config.AccountSID + "/")
 	sling := base.New().
 		Set("Accept", "application/json").
 		Set("Content-Type", "application/x-www-form-urlencoded").
-		SetBasicAuth(c.accountSid, c.authToken)
-	return &Twilio{config: config, sling: sling}
+		SetBasicAuth(config.AccountSID, config.AuthToken)
+	return &Client{config: config, sling: sling}
 }
 
-func (c *TwilioClient) SendSMS(toNumber, message string) error {
-	msgData := c.sling.New().Post("Messages.json").
-		BodyForm(strings.NewReader(fmt.Sprintf("To=%s&From=%s&Body=%s", toNumber, c.fromNumber, message)))
-
-	resp, err := msgData.ReceiveSuccess(nil)
+func (c *Client) SendSMS(toNumber, message string) error {
+	req := sendMessageRequest{
+		To:   toNumber,
+		From: c.config.FromNumber,
+		Body: message,
+	}
+	respError := map[string]any{}
+	resp, err := c.sling.New().Post("Messages.json").BodyForm(&req).Receive(nil, &respError)
 	if err != nil {
+		log.Printf("error sending message to=%s err=%v", toNumber, err)
 		return errors.Wrap(err, "error sending message")
 	}
 
-	if resp.StatusCode() >= 200 && resp.StatusCode() < 300 {
+	if resp.StatusCode == 201 {
 		return nil
 	} else {
-		return fmt.Errorf("Failed to send SMS: %s", resp.Status())
+		log.Printf("failed to send SMS, phone=%s twilio status=%s resp=%v",
+			toNumber, resp.StatusCode, respError)
+		return fmt.Errorf("failed to send SMS")
 	}
 }

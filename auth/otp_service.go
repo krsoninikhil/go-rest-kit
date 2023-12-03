@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/krsoninikhil/go-rest-kit/apperrors"
 	"github.com/krsoninikhil/go-rest-kit/cache"
 	"github.com/pkg/errors"
 )
@@ -12,7 +13,7 @@ import (
 // dependencies
 type (
 	smsProvider interface {
-		Send(phone, message string) error
+		SendSMS(phone, message string) error
 	}
 	cacheClient interface {
 		Set(key string, value any, ttl time.Duration) error
@@ -27,12 +28,12 @@ type otpMetaData struct {
 }
 
 type otpSvc struct {
-	config      OTPConfig
+	config      otpConfig
 	smsProvider smsProvider
 	cache       cacheClient
 }
 
-func NewOTPSvc(config OTPConfig, smsProvider smsProvider, cache cacheClient) otpSvc {
+func NewOTPSvc(config otpConfig, smsProvider smsProvider, cache cacheClient) otpSvc {
 	return otpSvc{
 		config:      config,
 		smsProvider: smsProvider,
@@ -50,21 +51,21 @@ func (s otpSvc) Send(ctx context.Context, phone string) (*OTPStatus, error) {
 	} else {
 		lastOTP, ok := lastOTPMeta.(otpMetaData)
 		if !ok {
-			return nil, errors.Wrap(err, "invalid last otp")
+			return nil, apperrors.NewServerError(errors.New("invalid last otp"))
 		}
 
 		if lastOTP.Attempt >= s.config.MaxAttempts {
-			return nil, errors.Wrap(err, "max attempt reached")
+			return nil, apperrors.NewInvalidParamsError("otp", errors.New("max attempt reached"))
 		}
 
 		if time.Since(lastOTP.SentAt) < s.config.retryAfter() {
-			return nil, errors.Wrap(err, "retrying too soon")
+			return nil, apperrors.NewInvalidParamsError("otp", errors.New("retry too soon"))
 		}
 		attempt = lastOTP.Attempt + 1
 	}
 
 	otp := generateOTP(s.config.Length)
-	if err := s.smsProvider.Send(phone, otp); err != nil {
+	if err := s.smsProvider.SendSMS(phone, otpMessage(otp)); err != nil {
 		return nil, errors.Wrap(err, "unable to send otp")
 	}
 
@@ -78,7 +79,7 @@ func (s otpSvc) Send(ctx context.Context, phone string) (*OTPStatus, error) {
 	}
 
 	return &OTPStatus{
-		RetryAfter:  s.config.RetryAfter,
+		RetryAfter:  s.config.RetryAfterSeconds,
 		AttemptLeft: s.config.MaxAttempts - otpMeta.Attempt,
 	}, nil
 }
@@ -86,20 +87,23 @@ func (s otpSvc) Send(ctx context.Context, phone string) (*OTPStatus, error) {
 func (s otpSvc) Verify(ctx context.Context, phone, otp string) error {
 	lastOTPMeta, err := s.cache.Get(phone)
 	if err != nil {
+		if errors.Is(err, cache.ErrKeyNotFound) {
+			return apperrors.NewInvalidParamsError("otp", errors.New("otp not sent or expired"))
+		}
 		return errors.Wrap(err, "unable to get last otp")
 	}
 
 	lastOTP, ok := lastOTPMeta.(otpMetaData)
 	if !ok {
-		return errors.Wrap(err, "invalid last otp")
+		return apperrors.NewServerError(errors.New("invalid last otp"))
 	}
 
 	if time.Since(lastOTP.SentAt) >= s.config.validity() {
-		return errors.Wrap(err, "otp expired")
+		return apperrors.NewInvalidParamsError("otp", errors.New("otp expired"))
 	}
 
 	if lastOTP.OTP != otp {
-		return errors.Wrap(err, "invalid otp")
+		return apperrors.NewInvalidParamsError("otp", errors.New("incorrect otp"))
 	}
 
 	return nil
@@ -115,4 +119,8 @@ func generateOTP(length int) string {
 	}
 
 	return string(otp)
+}
+
+func otpMessage(otp string) string {
+	return "Your OTP is " + otp
 }

@@ -1,6 +1,10 @@
 package auth
 
-import "time"
+import (
+	"time"
+
+	"github.com/krsoninikhil/go-rest-kit/integrations/twilio"
+)
 
 type (
 	CtxKey string
@@ -12,25 +16,13 @@ const (
 	audienceRefresh   string = "refresh"
 )
 
-type OTPConfig struct {
-	ValiditySeconds int `validate:"required"`
-	MaxAttempts     int `validate:"required"`
-	RetryAfter      int `validate:"required"`
-	Length          int `validate:"required"`
-}
-
-func (c OTPConfig) validity() time.Duration {
-	return time.Duration(c.ValiditySeconds) * time.Second
-}
-func (c OTPConfig) retryAfter() time.Duration {
-	return time.Duration(c.RetryAfter) * time.Second
-}
-
+// Config holds the configuration for auth service
 type Config struct {
-	SecretKey                   string `validate:"required" log:"-"`
-	AccessTokenValiditySeconds  int    `validate:"required"`
-	RefreshTokenValiditySeconds int    `validate:"required"`
-	OTPConfig                   OTPConfig
+	SecretKey                   string        `validate:"required" log:"-"`
+	AccessTokenValiditySeconds  int           `validate:"required"`
+	RefreshTokenValiditySeconds int           `validate:"required"`
+	OTP                         otpConfig     `validate:"required"`
+	Twilio                      twilio.Config `validate:"required"`
 }
 
 func (c Config) accessTokenValidity() time.Duration {
@@ -39,4 +31,19 @@ func (c Config) accessTokenValidity() time.Duration {
 
 func (c Config) refreshTokenValidity() time.Duration {
 	return time.Duration(c.RefreshTokenValiditySeconds) * time.Second
+}
+
+// otpConfig holds the configuration for OTP service
+type otpConfig struct {
+	ValiditySeconds   int `validate:"required"`
+	MaxAttempts       int `validate:"required"`
+	RetryAfterSeconds int `validate:"required"`
+	Length            int `validate:"required"`
+}
+
+func (c otpConfig) validity() time.Duration {
+	return time.Duration(c.ValiditySeconds) * time.Second
+}
+func (c otpConfig) retryAfter() time.Duration {
+	return time.Duration(c.RetryAfterSeconds) * time.Second
 }

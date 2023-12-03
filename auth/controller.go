@@ -28,7 +28,7 @@ type (
 // schema
 type (
 	SendOTPRequest struct {
-		Phone string
+		Phone string `json:"phone" binding:"required"`
 	}
 	SendOTPResponse struct {
 		RetryAfter  int `json:"retry_after"`
@@ -80,10 +80,14 @@ func NewController(authSvc AuthService, otpSvc OTPSvcI) *Controller {
 
 func (a *Controller) SendOTP(c *gin.Context, r SendOTPRequest) (*SendOTPResponse, error) {
 	res, err := a.otpSvc.Send(c, r.Phone)
+	if err != nil {
+		return nil, err
+	}
+
 	return &SendOTPResponse{
 		RetryAfter:  res.RetryAfter,
 		AttemptLeft: res.AttemptLeft,
-	}, err
+	}, nil
 }
 
 func (a *Controller) VerifyOTP(c *gin.Context, r VerifyOTPRequest) (*VerifyOTPResponse, error) {
@@ -93,18 +97,26 @@ func (a *Controller) VerifyOTP(c *gin.Context, r VerifyOTPRequest) (*VerifyOTPRe
 	}
 
 	res, err := a.authSvc.UpsertUser(c, r.Phone)
+	if err != nil {
+		return nil, err
+	}
+
 	return &VerifyOTPResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
 		ExpiresAt:    res.ExpiresIn,
-	}, err
+	}, nil
 }
 
 func (a *Controller) RefreshToken(c *gin.Context, r RefreshTokenRequest) (*VerifyOTPResponse, error) {
 	res, err := a.authSvc.RefreshToken(c, r.RefreshToken)
+	if err != nil {
+		return nil, err
+	}
+
 	return &VerifyOTPResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
 		ExpiresAt:    res.ExpiresIn,
-	}, err
+	}, nil
 }

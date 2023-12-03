@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/krsoninikhil/go-rest-kit/apperrors"
 )
 
 type UserDao interface {
 	Create(ctx context.Context, phone string) (userID int, err error)
+	GetByPhone(ctx context.Context, phone string) (userID int, err error)
 }
 
 type TokenSvc interface {
@@ -38,9 +40,16 @@ func NewService(config Config, userDao UserDao) *Service {
 }
 
 func (s *Service) UpsertUser(ctx context.Context, phone string) (*Token, error) {
-	userID, err := s.userDao.Create(ctx, phone)
+	userID, err := s.userDao.GetByPhone(ctx, phone)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create user: %v", err)
+		if _, ok := err.(apperrors.NotFoundError); ok {
+			userID, err = s.userDao.Create(ctx, phone)
+			if err != nil {
+				return nil, apperrors.NewServerError(fmt.Errorf("error creating user: %v", err))
+			}
+		} else {
+			return nil, apperrors.NewServerError(fmt.Errorf("error getting user: %v", err))
+		}
 	}
 
 	return s.generateToken(ctx, fmt.Sprintf("%d", userID))
@@ -49,12 +58,12 @@ func (s *Service) UpsertUser(ctx context.Context, phone string) (*Token, error) 
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {
 	token, err := s.tokenSvc.VerifyToken(refreshToken, s.config.SecretKey)
 	if err != nil {
-		return nil, fmt.Errorf("unable to verify refresh token: %v", err)
+		return nil, apperrors.NewInvalidParamsError("token", err)
 	}
 
 	subject, err := s.tokenSvc.ValiateRefreshTokenClaims(token.Claims)
 	if err != nil {
-		return nil, fmt.Errorf("unable to validate refresh token claims: %v", err)
+		return nil, apperrors.NewInvalidParamsError("token", err)
 	}
 
 	return s.generateToken(ctx, subject)
