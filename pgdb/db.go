@@ -13,7 +13,7 @@ type Config struct {
 	Name            string
 	Host            string
 	Port            int
-	User            string
+	User            string `log:"-"`
 	Password        string `log:"-"`
 	DebugMigrations bool
 }

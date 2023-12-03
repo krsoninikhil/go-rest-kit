@@ -1,6 +1,7 @@
 package request
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -28,18 +29,21 @@ func BindAll[R, S any](handler bindedHandlerFunc[R, S]) gin.HandlerFunc {
 // Uri params could be mentioned required and validation would fail if
 // looked in query param or elsewhere
 func bindRequestParams[P, R any](c *gin.Context, params *P, req *R) error {
-	if err := c.ShouldBindUri(params); err != nil {
-		return errors.WithStack(err)
+	if params != nil {
+		if err := c.ShouldBindUri(params); err != nil {
+			return errors.WithStack(err)
+		}
+		if err := c.ShouldBindQuery(params); err != nil {
+			return errors.WithStack(err)
+		}
+		if err := c.ShouldBindHeader(params); err != nil {
+			return errors.WithStack(err)
+		}
 	}
-	if err := c.ShouldBindQuery(params); err != nil {
-		return errors.WithStack(err)
-	}
-	if err := c.ShouldBindHeader(params); err != nil {
-		return errors.WithStack(err)
-	}
+
 	if req != nil {
 		if err := c.ShouldBindJSON(req); err != nil {
-			return errors.WithStack(err)
+			return errors.Wrap(err, "error binding request body")
 		}
 	}
 	return nil
@@ -62,9 +66,15 @@ func Respond(c *gin.Context, res any, err error) {
 	}
 
 	// handle error
-	if appError, ok := err.(apperrors.AppError); ok {
-		c.JSON(appError.HTTPCode(), appError.HTTPResponse())
-		return
+	appError, ok := err.(apperrors.AppError)
+	if !ok {
+		appError = apperrors.NewServerError(err)
 	}
-	c.JSON(http.StatusInternalServerError, err)
+
+	// log causes of server errors
+	if severErr, ok := appError.(apperrors.ServerError); ok && severErr.Cause != nil {
+		log.Print("server error cause: ", severErr.Cause.Error())
+	}
+
+	c.JSON(appError.HTTPCode(), appError.HTTPResponse())
 }

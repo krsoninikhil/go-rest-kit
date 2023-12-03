@@ -1,6 +1,10 @@
 package cache
 
-import "time"
+import (
+	"time"
+
+	"github.com/pkg/errors"
+)
 
 type InMemory struct {
 	data     map[string]interface{}
@@ -21,8 +25,10 @@ func (c *InMemory) Set(key string, value interface{}, ttl time.Duration) error {
 }
 
 func (c *InMemory) Get(key string) (interface{}, error) {
-	if time.Now().After(c.validity[key]) {
-		return nil, ErrKeyNotFound
+	value, ok := c.data[key]
+	if time.Now().After(c.validity[key]) || !ok {
+		return nil, errors.WithStack(ErrKeyNotFound)
 	}
-	return c.data[key], nil
+
+	return value, nil
 }
