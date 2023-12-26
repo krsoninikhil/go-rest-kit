@@ -2,13 +2,16 @@ package crud
 
 import "context"
 
-type CrudService[M any] interface {
+type Service[M any] interface {
 	Get(ctx context.Context, id int) (*M, error)
 	Create(ctx context.Context, m M) (*M, error)
 	Update(ctx context.Context, id int, m M) (*M, error)
 	Delete(ctx context.Context, id int) error
 	List(ctx context.Context, after int, limit int) (res []M, total int64, err error)
+	BulkCreate(ctx context.Context, m []M) error
 }
+
+type DaoI[M any] Service[M]
 
 type (
 	ListResponse[M any] struct {

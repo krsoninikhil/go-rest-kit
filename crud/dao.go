@@ -64,12 +64,24 @@ func (db *Dao[M]) Delete(ctx context.Context, id int) error {
 func (db *Dao[M]) List(ctx context.Context, after int, limit int) (res []M, total int64, err error) {
 	var m M
 	q := db.DB(ctx).Model(m)
-	q.Count(&total)
+	if err := q.Count(&total).Error; err != nil {
+		return nil, total, apperrors.NewServerError(err)
+	}
 
 	q.Where("id > ?", after).Order("id DESC")
 	if limit > 0 {
 		q.Limit(limit)
 	}
-	q.Scan(&res)
+	if err := q.Scan(&res).Error; err != nil {
+		return nil, total, apperrors.NewServerError(err)
+	}
+
 	return
+}
+
+func (db *Dao[M]) BulkCreate(ctx context.Context, m []M) error {
+	if err := db.DB(ctx).Create(&m).Error; err != nil {
+		return apperrors.NewServerError(err)
+	}
+	return nil
 }

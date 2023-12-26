@@ -13,7 +13,7 @@ type (
 	}
 
 	Controller[M Model, S Response[M], R Request[M]] struct {
-		Svc CrudService[M]
+		Svc Service[M]
 	}
 )
 

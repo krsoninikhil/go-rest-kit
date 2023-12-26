@@ -21,8 +21,9 @@ type (
 		ParentID int `uri:"parentID" binding:"required"`
 	}
 	NestedParam struct {
-		ParentID int `uri:"parentID"` // binding:"required"`
-		ListParam
+		ParentID int `uri:"parentID" binding:"required"`
+		After    int `form:"after" binding:"omitempty,min=0"`
+		Limit    int `form:"limit,default=10" binding:"omitempty,min=1,max=100" default:"25"`
 	}
 	NestedResRequest[M NestedModel[M]] interface {
 		ToModel() M
@@ -34,7 +35,7 @@ type (
 	// but that would move the contract definition to model, which is avoided here.
 	// Path is expected to be in format /parent/:parentID/child/:id with exact param names
 	NestedController[M NestedModel[M], S Response[M], R NestedResRequest[M]] struct {
-		Svc CrudService[M]
+		Svc Service[M]
 	}
 )
 
