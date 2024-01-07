@@ -7,6 +7,7 @@ import (
 	"github.com/krsoninikhil/go-rest-kit/apperrors"
 	"github.com/krsoninikhil/go-rest-kit/pgdb"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Model interface {
@@ -38,7 +39,7 @@ func (db *Dao[M]) Update(ctx context.Context, id int, m M) (*M, error) {
 
 func (db *Dao[M]) Get(ctx context.Context, id int) (*M, error) {
 	var m M
-	if err := db.DB(ctx).Where("id = ?", id).First(&m).Error; err != nil {
+	if err := db.DB(ctx).Where("id = ?", id).Preload(clause.Associations).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, apperrors.NewNotFoundError(m.ResourceName())
 		}
@@ -72,7 +73,7 @@ func (db *Dao[M]) List(ctx context.Context, after int, limit int) (res []M, tota
 	if limit > 0 {
 		q.Limit(limit)
 	}
-	if err := q.Scan(&res).Error; err != nil {
+	if err := q.Preload(clause.Associations).Scan(&res).Error; err != nil {
 		return nil, total, apperrors.NewServerError(err)
 	}
 

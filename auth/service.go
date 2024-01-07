@@ -16,7 +16,7 @@ type UserDao interface {
 type TokenSvc interface {
 	NewAccessTokenClaims(subject string) jwt.Claims
 	NewRefreshTokenClaims(subject string) jwt.Claims
-	VerifyToken(token string, signingKey string) (*jwt.Token, error)
+	VerifyToken(token string) (*jwt.Token, error)
 	ValidateAccessTokenClaims(claims jwt.Claims) (subject string, err error)
 	ValiateRefreshTokenClaims(claims jwt.Claims) (subject string, err error)
 }
@@ -28,9 +28,10 @@ type Service struct {
 }
 
 func NewService(config Config, userDao UserDao) *Service {
-	tokenSvc := newClaimsSvc(
+	tokenSvc := NewStdClaimsSvc(
 		config.accessTokenValidity(),
 		config.refreshTokenValidity(),
+		config.SecretKey,
 	)
 	return &Service{
 		config:   config,
@@ -56,7 +57,7 @@ func (s *Service) UpsertUser(ctx context.Context, phone string) (*Token, error) 
 }
 
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {
-	token, err := s.tokenSvc.VerifyToken(refreshToken, s.config.SecretKey)
+	token, err := s.tokenSvc.VerifyToken(refreshToken)
 	if err != nil {
 		return nil, apperrors.NewInvalidParamsError("token", err)
 	}

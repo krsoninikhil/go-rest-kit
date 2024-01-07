@@ -44,7 +44,7 @@ func (c *Client) SendSMS(toNumber, message string) error {
 	if resp.StatusCode == 201 {
 		return nil
 	} else {
-		log.Printf("failed to send SMS, phone=%s twilio status=%s resp=%v",
+		log.Printf("failed to send SMS, phone=%s twilio status=%d resp=%v",
 			toNumber, resp.StatusCode, respError)
 		return fmt.Errorf("failed to send SMS")
 	}

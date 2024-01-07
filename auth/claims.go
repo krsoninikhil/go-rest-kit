@@ -11,12 +11,14 @@ import (
 type claimsSvc struct {
 	accessTokenValidity  time.Duration
 	refreshTokenValidity time.Duration
+	signingKey           string
 }
 
-func newClaimsSvc(accessTokenValidity, refreshTokenValidity time.Duration) *claimsSvc {
+func NewStdClaimsSvc(accessTokenValidity, refreshTokenValidity time.Duration, signingKey string) *claimsSvc {
 	return &claimsSvc{
 		accessTokenValidity:  accessTokenValidity,
 		refreshTokenValidity: refreshTokenValidity,
+		signingKey:           signingKey,
 	}
 }
 
@@ -69,12 +71,12 @@ func (s *claimsSvc) ValiateRefreshTokenClaims(claims jwt.Claims) (string, error)
 	return stdClaims.Subject, nil
 }
 
-func (s *claimsSvc) VerifyToken(token string, signingKey string) (*jwt.Token, error) {
+func (s *claimsSvc) VerifyToken(token string) (*jwt.Token, error) {
 	parsedToken, err := jwt.ParseWithClaims(token, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(signingKey), nil
+		return []byte(s.signingKey), nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token: %v", err)

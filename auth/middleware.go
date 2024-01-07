@@ -1,9 +1,9 @@
 package auth
 
 import (
-	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
@@ -11,7 +11,15 @@ import (
 
 type tokenSvc interface {
 	VerifyToken(token string) (*jwt.Token, error)
-	ValidateAccessTokenClaims(claims jwt.Claims) error
+	ValidateAccessTokenClaims(claims jwt.Claims) (string, error)
+}
+
+func GinStdMiddleware(conf Config) gin.HandlerFunc {
+	return GinMiddleware(NewStdClaimsSvc(
+		time.Duration(conf.AccessTokenValiditySeconds),
+		time.Duration(conf.RefreshTokenValiditySeconds),
+		conf.SecretKey,
+	))
 }
 
 func GinMiddleware(tokenSvc tokenSvc) gin.HandlerFunc {
@@ -34,13 +42,14 @@ func GinMiddleware(tokenSvc tokenSvc) gin.HandlerFunc {
 			return
 		}
 
-		if err := tokenSvc.ValidateAccessTokenClaims(parsedToken.Claims); err != nil {
+		sub, err := tokenSvc.ValidateAccessTokenClaims(parsedToken.Claims)
+		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
 
-		ctx := context.WithValue(c.Request.Context(), CtxKeyTokenClaims, parsedToken.Claims)
-		c.Request = c.Request.WithContext(ctx)
+		c.Set(CtxKeyTokenClaims, parsedToken.Claims)
+		c.Set(CtxKeyUserID, sub)
 		c.Next()
 	}
 }

@@ -6,12 +6,9 @@ import (
 	"github.com/krsoninikhil/go-rest-kit/integrations/twilio"
 )
 
-type (
-	CtxKey string
-)
-
 const (
-	CtxKeyTokenClaims CtxKey = "tokenClaims"
+	CtxKeyTokenClaims string = "tokenClaims"
+	CtxKeyUserID      string = "userID"
 	audienceLogin     string = "login"
 	audienceRefresh   string = "refresh"
 )
