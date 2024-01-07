@@ -15,7 +15,7 @@ func (e baseError) Error() string { return e.Cause.Error() }
 
 func (e baseError) httpResponse(title string) map[string]any {
 	return map[string]any{
-		"title":  title, // too brittle here, should be defined for every error
+		"title":  title,
 		"detail": e.Error(),
 		"entity": e.Resource,
 	}
