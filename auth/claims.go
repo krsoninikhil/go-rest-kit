@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -88,7 +87,7 @@ func (s *claimsSvc) VerifyToken(token string) (*jwt.Token, error) {
 	return parsedToken, nil
 }
 
-func generateJWTToken(ctx context.Context, claims jwt.Claims, secretKey string) (string, error) {
+func generateJWTToken(claims jwt.Claims, secretKey string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte(secretKey))
 	if err != nil {

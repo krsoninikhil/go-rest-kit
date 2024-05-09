@@ -26,7 +26,7 @@ type (
 		Limit    int `form:"limit,default=10" binding:"omitempty,min=1,max=100" default:"25"`
 	}
 	NestedResRequest[M NestedModel[M]] interface {
-		ToModel() M
+		ToModel(*gin.Context) M
 	}
 
 	// NestedController represents crud controller taking model, request and response object
@@ -40,9 +40,13 @@ type (
 )
 
 func (c *NestedController[M, S, R]) Create(ctx *gin.Context, p NestedParam, req R) (*S, error) {
-	m := req.ToModel()
+	m := req.ToModel(ctx)
 	m = m.SetParentID(p.ParentID)
 	res, err := c.Svc.Create(ctx, m)
+	fmt.Println("response from create", res, err)
+	if err != nil {
+		return nil, err
+	}
 
 	var response S
 	response, ok := response.FillFromModel(*res).(S)
@@ -78,7 +82,7 @@ func (c *NestedController[M, S, R]) Update(ctx *gin.Context, p NestedResourcePar
 		return apperrors.NewPermissionError((*res).ResourceName())
 	}
 
-	_, err = c.Svc.Update(ctx, p.ID, req.ToModel())
+	_, err = c.Svc.Update(ctx, p.ID, req.ToModel(ctx))
 	return err
 }
 
@@ -110,5 +114,5 @@ func (c NestedController[M, S, R]) List(ctx *gin.Context, p NestedParam) (*ListR
 		}
 		res = append(res, response)
 	}
-	return &ListResponse[S]{Items: res, Total: total}, nil
+	return &ListResponse[S]{Items: res, Total: total, NextAfter: GetLastItemID(res)}, nil
 }

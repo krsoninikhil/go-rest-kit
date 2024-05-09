@@ -15,3 +15,4 @@ type BaseModel struct {
 
 func (d BaseModel) IsDeleted() bool { return d.DeletedAt.Valid }
 func (d BaseModel) PK() int         { return d.ID }
+func (s BaseModel) Joins() []string { return []string{} }

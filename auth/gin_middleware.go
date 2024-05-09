@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,4 +53,9 @@ func GinMiddleware(tokenSvc tokenSvc) gin.HandlerFunc {
 		c.Set(CtxKeyUserID, sub)
 		c.Next()
 	}
+}
+
+func UserID(c *gin.Context) int {
+	userID, _ := strconv.Atoi(c.GetString(CtxKeyUserID))
+	return userID
 }

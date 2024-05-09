@@ -11,12 +11,17 @@ type Service[M any] interface {
 	BulkCreate(ctx context.Context, m []M) error
 }
 
+type PageItem interface {
+	ItemID() int
+}
+
 type DaoI[M any] Service[M]
 
 type (
 	ListResponse[M any] struct {
-		Items []M   `json:"items"`
-		Total int64 `json:"total"`
+		Items     []M   `json:"items"`
+		Total     int64 `json:"total"`
+		NextAfter int   `json:"next_after"`
 	}
 
 	ResourceParam struct {

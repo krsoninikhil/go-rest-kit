@@ -1,6 +1,6 @@
 module github.com/krsoninikhil/go-rest-kit
 
-go 1.21.1
+go 1.22
 
 require (
 	github.com/dghubble/sling v1.4.1

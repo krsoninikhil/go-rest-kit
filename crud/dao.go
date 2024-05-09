@@ -14,6 +14,11 @@ type Model interface {
 	IsDeleted() bool
 	ResourceName() string
 	PK() int
+	Joins() []string
+}
+
+type ModelWithCreator interface {
+	SetCreatedBy(userID int)
 }
 
 type Dao[M Model] struct {
@@ -69,14 +74,18 @@ func (db *Dao[M]) List(ctx context.Context, after int, limit int) (res []M, tota
 		return nil, total, apperrors.NewServerError(err)
 	}
 
-	q.Where("id > ?", after).Order("id DESC")
+	tableName := q.Statement.Table
+	q.Where(tableName+".id > ?", after).Order(tableName + ".id DESC")
 	if limit > 0 {
 		q.Limit(limit)
 	}
-	if err := q.Preload(clause.Associations).Scan(&res).Error; err != nil {
-		return nil, total, apperrors.NewServerError(err)
+	for _, joins := range m.Joins() {
+		q.Joins(joins)
 	}
 
+	if err := q.Scan(&res).Error; err != nil {
+		return nil, total, apperrors.NewServerError(err)
+	}
 	return
 }
 

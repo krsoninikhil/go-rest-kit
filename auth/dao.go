@@ -12,6 +12,7 @@ import (
 
 type UserModel interface {
 	SetPhone(string) UserModel
+	SetSignupInfo(SigupInfo) UserModel
 	PK() int
 	ResourceName() string
 }
@@ -24,9 +25,10 @@ func NewUserDao[U UserModel](db *pgdb.PGDB) *userDao[U] {
 	return &userDao[U]{db}
 }
 
-func (d *userDao[U]) Create(ctx context.Context, phone string) (int, error) {
+func (d *userDao[U]) Create(ctx context.Context, u SigupInfo) (int, error) {
 	var user U
-	user = user.SetPhone(phone).(U)
+	user = user.SetPhone(u.Phone).(U)
+	user = user.SetSignupInfo(u).(U)
 	if err := d.PGDB.DB(ctx).Create(&user).Error; err != nil {
 		return 0, err
 	}

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,61 +21,28 @@ type (
 		VerifyToken()
 	}
 	AuthService interface {
-		UpsertUser(ctx context.Context, phone string) (*Token, error)
+		UpsertUser(ctx context.Context, u SigupInfo) (*Token, error)
 		RefreshToken(ctx context.Context, refreshToken string) (*Token, error)
 	}
-)
-
-// schema
-type (
-	SendOTPRequest struct {
-		Phone string `json:"phone" binding:"required"`
-	}
-	SendOTPResponse struct {
-		RetryAfter  int `json:"retry_after"`
-		AttemptLeft int `json:"attempt_left"`
-	}
-
-	VerifyOTPRequest struct {
-		Phone string `json:"phone" binding:"required"`
-		OTP   string `json:"otp" binding:"required,numeric"`
-	}
-	VerifyOTPResponse struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		ExpiresAt    int64  `json:"expires_in"`
-	}
-
-	RefreshTokenRequest struct {
-		RefreshToken string `json:"refresh_token" binding:"required"`
-	}
-)
-
-// dto
-type (
-	OTPStatus struct {
-		RetryAfter  int
-		AttemptLeft int
-	}
-	Token struct {
-		AccessToken  string
-		RefreshToken string
-		ExpiresIn    int64
+	LocalSvc interface {
+		GetCountryInfo(ctx context.Context, locale string) (*CountryInfoSource, error)
 	}
 )
 
 type Controller struct {
-	authSvc AuthService
-	otpSvc  OTPSvcI
+	authSvc   AuthService
+	otpSvc    OTPSvcI
+	localeSvc LocalSvc
 	// googleSvc OAuthProvider
 	// appleSvc  OAuthProvider
 	// googleGSI AuthGSI
 }
 
-func NewController(authSvc AuthService, otpSvc OTPSvcI) *Controller {
+func NewController(authSvc AuthService, otpSvc OTPSvcI, cacheClient cacheClient) *Controller {
 	return &Controller{
-		authSvc: authSvc,
-		otpSvc:  otpSvc,
+		authSvc:   authSvc,
+		otpSvc:    otpSvc,
+		localeSvc: NewLocaleSvc(cacheClient),
 	}
 }
 
@@ -83,6 +51,7 @@ func (a *Controller) SendOTP(c *gin.Context, r SendOTPRequest) (*SendOTPResponse
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("otp sent successfully request=%+v", r)
 
 	return &SendOTPResponse{
 		RetryAfter:  res.RetryAfter,
@@ -96,15 +65,16 @@ func (a *Controller) VerifyOTP(c *gin.Context, r VerifyOTPRequest) (*VerifyOTPRe
 		return nil, err
 	}
 
-	res, err := a.authSvc.UpsertUser(c, r.Phone)
+	res, err := a.authSvc.UpsertUser(c, r.toSigupInfo())
 	if err != nil {
 		return nil, err
 	}
 
 	return &VerifyOTPResponse{
-		AccessToken:  res.AccessToken,
-		RefreshToken: res.RefreshToken,
-		ExpiresAt:    res.ExpiresIn,
+		AccessToken:      res.AccessToken,
+		RefreshToken:     res.RefreshToken,
+		ExpiresIn:        res.ExpiresIn,
+		RefreshExpiresIn: res.RefreshExpiresIn,
 	}, nil
 }
 
@@ -115,8 +85,19 @@ func (a *Controller) RefreshToken(c *gin.Context, r RefreshTokenRequest) (*Verif
 	}
 
 	return &VerifyOTPResponse{
-		AccessToken:  res.AccessToken,
-		RefreshToken: res.RefreshToken,
-		ExpiresAt:    res.ExpiresIn,
+		AccessToken:      res.AccessToken,
+		RefreshToken:     res.RefreshToken,
+		ExpiresIn:        res.ExpiresIn,
+		RefreshExpiresIn: res.RefreshExpiresIn,
 	}, nil
+}
+
+func (a *Controller) CountryInfo(c *gin.Context, r CountryInfoRequest) (*CountryInfoResponse, error) {
+	country, err := a.localeSvc.GetCountryInfo(c, r.Apha2Code)
+	if err != nil {
+		return nil, err
+	}
+
+	res := CountryInfoResponse(*country)
+	return &res, nil
 }
