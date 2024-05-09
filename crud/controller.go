@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"github.com/gin-gonic/gin"
+	"github.com/krsoninikhil/go-rest-kit/apperrors"
+	"github.com/krsoninikhil/go-rest-kit/auth"
 )
 
 type (
@@ -40,8 +42,14 @@ func (c *Controller[M, S, R]) Retrieve(ctx *gin.Context, p ResourceParam) (*S, e
 	if err != nil {
 		return nil, err
 	}
+	model := *res
+
+	if mc, ok := any(model).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
+		return nil, apperrors.NewPermissionError(model.ResourceName())
+	}
+
 	var response S
-	response, ok := response.FillFromModel(*res).(S)
+	response, ok := response.FillFromModel(model).(S)
 	if !ok {
 		panic("Invalid implementation of FillFromModel, it should return same type as implementor")
 	}
@@ -49,12 +57,26 @@ func (c *Controller[M, S, R]) Retrieve(ctx *gin.Context, p ResourceParam) (*S, e
 }
 
 func (c *Controller[M, S, R]) Update(ctx *gin.Context, p ResourceParam, req R) error {
-	m := req.ToModel(ctx)
-	_, err := c.Svc.Update(ctx, p.ID, m)
+	model := req.ToModel(ctx)
+
+	if mc, ok := any(model).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
+		return apperrors.NewPermissionError(model.ResourceName())
+	}
+
+	_, err := c.Svc.Update(ctx, p.ID, model)
 	return err
 }
 
 func (c *Controller[M, S, R]) Delete(ctx *gin.Context, id int) error {
+	res, err := c.Svc.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	model := *res
+
+	if mc, ok := any(model).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
+		return apperrors.NewPermissionError(model.ResourceName())
+	}
 	return c.Svc.Delete(ctx, id)
 }
 
@@ -64,16 +86,25 @@ func (c *Controller[M, S, R]) List(ctx *gin.Context, p ListParam) (*ListResponse
 		return nil, errors.New("list response type must implement PageItem interface")
 	}
 
-	items, total, err := c.Svc.List(ctx, p.After, p.Limit)
+	var (
+		model     M
+		creatorID int
+	)
+	if _, ok := any(model).(ModelWithCreator); ok {
+		creatorID = auth.UserID(ctx)
+	}
+
+	items, total, err := c.Svc.List(ctx, p.After, p.Limit, creatorID)
 	if err != nil {
 		return nil, err
 	}
+
 	var res []S
 	for _, item := range items {
 		var response S
 		response, ok := response.FillFromModel(item).(S)
 		if !ok {
-			panic("Invalid implementation of FillFromModel, it should return same type as implementor")
+			panic("invalid implementation of FillFromModel, it should return same type as implementor")
 		}
 		res = append(res, response)
 	}

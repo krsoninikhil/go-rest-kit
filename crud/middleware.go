@@ -33,7 +33,6 @@ func GinParentVerifier(parentDao ParentDao) gin.HandlerFunc {
 			handleError(c, apperrors.NewServerError(err))
 			return
 		}
-		print("parents", parents)
 		for _, parent := range parents {
 			if parent.PK() == parentID {
 				c.Next()

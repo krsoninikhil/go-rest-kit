@@ -43,7 +43,6 @@ func (c *NestedController[M, S, R]) Create(ctx *gin.Context, p NestedParam, req 
 	m := req.ToModel(ctx)
 	m = m.SetParentID(p.ParentID)
 	res, err := c.Svc.Create(ctx, m)
-	fmt.Println("response from create", res, err)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +100,7 @@ func (c *NestedController[M, S, R]) Delete(ctx *gin.Context, p NestedResourcePar
 }
 
 func (c NestedController[M, S, R]) List(ctx *gin.Context, p NestedParam) (*ListResponse[S], error) {
-	items, total, err := c.Svc.List(ctx, p.After, p.Limit)
+	items, total, err := c.Svc.List(ctx, p.After, p.Limit, p.ParentID)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +109,7 @@ func (c NestedController[M, S, R]) List(ctx *gin.Context, p NestedParam) (*ListR
 		var response S
 		response, ok := response.FillFromModel(item).(S)
 		if !ok {
-			panic("Invalid implementation of FillFromModel, it should return same type as implementor")
+			panic("invalid implementation of FillFromModel, it should return same type as implementor")
 		}
 		res = append(res, response)
 	}

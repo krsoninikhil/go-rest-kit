@@ -19,6 +19,7 @@ type Model interface {
 
 type ModelWithCreator interface {
 	SetCreatedBy(userID int)
+	CreatedByID() int
 }
 
 type Dao[M Model] struct {
@@ -67,18 +68,25 @@ func (db *Dao[M]) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-func (db *Dao[M]) List(ctx context.Context, after int, limit int) (res []M, total int64, err error) {
+func (db *Dao[M]) List(ctx context.Context, after int, limit int, creatorID int) (res []M, total int64, err error) {
 	var m M
 	q := db.DB(ctx).Model(m)
+
+	if mc, ok := any(m).(ModelWithCreator); ok {
+		mc.SetCreatedBy(creatorID)
+		q = q.Where(mc)
+	} else if nm, ok := any(m).(NestedModel[M]); ok {
+		nm = any(nm.SetParentID(creatorID)).(NestedModel[M])
+		q = q.Where(nm)
+	}
+	print("query to execute", q.Statement.SQL.String())
+
 	if err := q.Count(&total).Error; err != nil {
 		return nil, total, apperrors.NewServerError(err)
 	}
 
 	tableName := q.Statement.Table
-	q.Where(tableName+".id > ?", after).Order(tableName + ".id DESC")
-	if limit > 0 {
-		q.Limit(limit)
-	}
+	q = q.Scopes(pgdb.Paginate(pgdb.Page{After: after, Limit: limit}, tableName+".id"))
 	for _, joins := range m.Joins() {
 		q.Joins(joins)
 	}
