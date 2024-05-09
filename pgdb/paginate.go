@@ -2,37 +2,26 @@ package pgdb
 
 import "gorm.io/gorm"
 
-type CursorPage struct {
-	After  uint `form:"after"`
-	Before uint `form:"before"`
-	Limit  int  `form:"limit"`
-}
-
 const DefaultPageLimit = 25
-const DefaultPageID = 0
+const MaxPageLimit = 100
 
-func CursorPaginate(page CursorPage, tableName string) func(db *gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		limit, id := CursorLimitID(page)
-		if page.After == 0 && page.Before != 0 {
-			return db.Where(tableName+`.id < ?`, id).Limit(limit)
-		}
-		return db.Where(tableName+`.id > ?`, id).Limit(limit)
-	}
+type Page struct {
+	Page  int `form:"page"`
+	Limit int `form:"limit"`
+	After int `form:"after"`
 }
 
-func CursorLimitID(page CursorPage) (int, uint) {
-	var id uint
-	if page.Limit == 0 {
-		page.Limit = DefaultPageLimit
+func Paginate(page Page, afterField string) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		if page.Limit == 0 || page.Limit > MaxPageLimit {
+			page.Limit = DefaultPageLimit
+		}
+		if page.After > 0 {
+			db = db.Where(afterField+" > ?", page.After)
+		}
+		if page.Page > 0 {
+			db = db.Offset(page.Page * page.Limit)
+		}
+		return db.Order(afterField + " ASC").Limit(page.Limit)
 	}
-	if page.After == 0 && page.Before == 0 {
-		id = DefaultPageID
-	}
-	if page.After == 0 {
-		id = page.Before
-	} else {
-		id = page.After
-	}
-	return page.Limit, id
 }
