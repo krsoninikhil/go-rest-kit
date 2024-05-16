@@ -79,7 +79,6 @@ func (db *Dao[M]) List(ctx context.Context, after int, limit int, creatorID int)
 		nm = any(nm.SetParentID(creatorID)).(NestedModel[M])
 		q = q.Where(nm)
 	}
-	print("query to execute", q.Statement.SQL.String())
 
 	if err := q.Count(&total).Error; err != nil {
 		return nil, total, apperrors.NewServerError(err)

@@ -44,5 +44,5 @@ func Load(ctx context.Context, target AppConfig) {
 	if err := viper.Unmarshal(target); err != nil {
 		log.Fatal(ctx, "error parsing config", err)
 	}
-	log.Printf("Loaded config %+v", target)
+	// log.Printf("Loaded config %+v", target)
 }

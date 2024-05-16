@@ -86,12 +86,3 @@ func (s *claimsSvc) VerifyToken(token string) (*jwt.Token, error) {
 	}
 	return parsedToken, nil
 }
-
-func generateJWTToken(claims jwt.Claims, secretKey string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenStr, err := token.SignedString([]byte(secretKey))
-	if err != nil {
-		return "", fmt.Errorf("unable to generate jwt token: %v", err)
-	}
-	return tokenStr, nil
-}

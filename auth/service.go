@@ -90,3 +90,12 @@ func (s *Service) generateToken(subject string) (*Token, error) {
 		RefreshExpiresIn: int64(s.config.refreshTokenValidity().Seconds()),
 	}, nil
 }
+
+func generateJWTToken(claims jwt.Claims, secretKey string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		return "", fmt.Errorf("unable to generate jwt token: %v", err)
+	}
+	return tokenStr, nil
+}
