@@ -16,6 +16,7 @@ type Config struct {
 	Port            int
 	User            string `log:"-"`
 	Password        string `log:"-"`
+	SSLRootCertPath string
 	DebugMigrations bool
 	Debug           bool
 }
@@ -33,8 +34,13 @@ func (d *PGDB) DB(ctx context.Context) *gorm.DB {
 }
 
 func NewPGConnection(ctx context.Context, config Config) *PGDB {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
 		config.Host, config.Port, config.User, config.Password, config.Name)
+	if config.SSLRootCertPath != "" {
+		dsn = fmt.Sprintf("%s sslrootcert=%s", dsn, config.SSLRootCertPath)
+	} else {
+		dsn = fmt.Sprintf("%s sslmode=disable", dsn)
+	}
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("failed to connect postgres", err)
