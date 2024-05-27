@@ -10,7 +10,7 @@ having to repeat the same parsing and error handling in every API handler.
 
 I should be able to write following handler / controller similar to FastAPI by just defining `SpecificRequest` and `SpecificResponse` i.e. get request body type as argument and return response type along with error:
 ```go
-func controller(ctx context.Context, request SpecificRequest) (*SpecificResponse, error) {}
+func myHandler(ctx context.Context, request SpecificRequest) (*SpecificResponse, error) {}
 ```
 
 ## Setup
@@ -31,15 +31,14 @@ go mod edit -replace github.com/krsoninikhil/go-rest-kit=../go-rest-kit
 Exposing simple CRUD APIs is as simple as following
 - Ensure your model implements `crud.Model`, you can embed `pgdb.BaseModel` to get default implementation for few methods.
 - Define your request and response types and have them implement `crud.Request` and `crud.Response` interfaces.
-Best part here is -- you can replace any component (controller, usecase or dao) with your own implementation.
-
+- Add routes specifying your request, response and model types
+  
 > This example also shows use of request binding methods, and how you can avoid writing repeated code for parsing request body.
 
 ```go
 // models.go
 type BusinessType struct {
-    ID int
-    Name int
+    Name string
     Icon string
     pgdb.BaseModel
 }
@@ -48,11 +47,11 @@ func (b BusinessType) ResourceName() string { return fmt.Sprintf("%T", b) }
 
 // entities.go
 type (
-    BusinessTypeRequest {
+    BusinessTypeRequest struct {
         Name string `json:"name" binding:"required"`
         Icon string `json:"icon"`
     }
-    BusinessTypeResponse {
+    BusinessTypeResponse struct {
         BusinessTypeRequest
         ID int `json:"id"`
     }
@@ -74,7 +73,7 @@ func (b BusinessTypeResponse) ItemID() int { return b.ID }
 
 // setup routes
 func main() {
-    businessTypeDao        = crud.Dao[models.BusinessType]{PGDB: s.pgdb} // use your own doa if you need custom implementation
+    businessTypeDao        = crud.Dao[models.BusinessType]{PGDB: db} // use your own doa if you need custom implementation
 	businessTypeCtlr = crud.Controller[models.BusinessType, types.BusinessTypeResponse, types.BusinessTypeRequest]{
         Svc: &businessTypeDao, // using dao for service as no business logic is required here
     } // prewritten controller struct with CRUD methods
@@ -83,11 +82,13 @@ func main() {
 	r.GET("/business-types", request.BindGet(businessTypeCtlr.Retrieve))
     r.GET("/business-types", request.BindGet(businessTypeCtlr.List))
 	r.POST("/business-types", request.BindCreate(businessTypeCtlr.Create))
-	r.PATCH("/business-types", request.BindUpdate(businessTypeCtlr.Create))
-	r.DELET("/business-types", request.BindDelete(businessTypeCtlr.Delete))
+	r.PATCH("/business-types", request.BindUpdate(businessTypeCtlr.Update))
+	r.DELETE("/business-types", request.BindDelete(businessTypeCtlr.Delete))
     // start your server
 }
 ```
+
+Best part here is -- you can replace any component (controller, usecase or dao) with your own implementation.
 
 ### 2. Load Your Application Config
 Configs are loaded from yaml files where empty values are overriden from environment, which is set using `.env` file.
@@ -95,15 +96,15 @@ e.g. if `redis.password` in your yaml is empty, it will be set by `REDIS_PASSWOR
 
 ```go
 // define application config
-type Config {
+type Config struct {
     DB pgdb.Config
     Twilio twilio.Config
     Auth auth.Config
     Env string
 }
 // implement `config.AppConfig`
-func (c *Config) EnvPath() string    { return "./.env" }
-func (c *Config) SourcePath() string { return fmt.Sprintf("./api/%s.yml", c.Env) }
+func (c *Config) EnvPath() string    { return "./.env" } // path to your .env file
+func (c *Config) SourcePath() string { return fmt.Sprintf("./api/%s.yml", c.Env) } // path to your yaml configuration file
 func (c *Config) SetEnv(env string) { c.Env = env } // embed `config.BaseConfig` to avoid defining SetEnv
 
 func main() {
@@ -143,7 +144,7 @@ func main() {
 }
 ```
 
-### _Getting Rid Of Repeated Code For Request Parsing In Every Handler
+### Getting Rid Of Repeated Code For Request Parsing In Every Handler
 If you usecase is not a typical CRUD, don't worry, you can still use the generic binding from `request` package.
 While `request.BindGet` would parse only the query string for GET request, `request.BindAll` would parse values
 from request uri, body and query based on the tags defined in request struct.
@@ -166,6 +167,8 @@ func businessTypeInsights(c *gin.Context, req RequestType) (*ResponseType, error
 }
 
 ```
+
+See full example for better understanding the implementation and usage [here](./examples/main.go).
 
 ## Packages Implementation Details
 

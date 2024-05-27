@@ -1,0 +1,23 @@
+# empty values will be set from environment
+db:
+  host: localhost
+  port: 5432
+  name: gorestkit
+  user: gorestkit
+  password: ""
+  debugMigrations: false
+  sslRootCertPath: "" # change this if using sslmode 
+  debug: true
+auth:
+  secretKey: ""
+  accessTokenValiditySeconds: 90000
+  refreshTokenValiditySeconds: 900000000
+  otp:
+    validitySeconds: 900
+    length: 6
+    maxAttempts: 3
+    retryAfterSeconds: 10
+  twilio:
+    accountSid: "Your-Account-SID" # change this
+    fromNumber: "Phone-Number" # change this
+    authToken: ""
