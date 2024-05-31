@@ -42,6 +42,10 @@ func NewOTPSvc(config otpConfig, smsProvider smsProvider, cache cacheClient) otp
 }
 
 func (s otpSvc) Send(ctx context.Context, phone string) (*OTPStatus, error) {
+	if err := validatePhone(phone); err != nil {
+		return nil, apperrors.NewInvalidParamsError("phone", err)
+	}
+
 	attempt := 1
 	lastOTPMeta, err := s.cache.Get(phone)
 	if err != nil {
@@ -65,6 +69,9 @@ func (s otpSvc) Send(ctx context.Context, phone string) (*OTPStatus, error) {
 	}
 
 	otp := generateOTP(s.config.Length)
+	if s.config.TestPhone == phone {
+		otp = testOTP
+	}
 	if err := s.smsProvider.SendSMS(phone, otpMessage(otp)); err != nil {
 		return nil, errors.Wrap(err, "unable to send otp")
 	}
@@ -123,4 +130,14 @@ func generateOTP(length int) string {
 
 func otpMessage(otp string) string {
 	return "Your OTP is " + otp
+}
+
+func validatePhone(phone string) error {
+	if len(phone) < 9 || len(phone) > 15 {
+		return errors.New("invalid phone number")
+	}
+	if phone[0] != '+' {
+		return errors.New("country code is required in phone")
+	}
+	return nil
 }

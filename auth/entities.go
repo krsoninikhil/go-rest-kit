@@ -11,6 +11,9 @@ const (
 	CtxKeyUserID      string = "userID"
 	audienceLogin     string = "login"
 	audienceRefresh   string = "refresh"
+
+	// otp for config.TestPhone to allow app reviews
+	testOTP = "000000"
 )
 
 // Config holds the configuration for auth service
@@ -36,6 +39,7 @@ type otpConfig struct {
 	MaxAttempts       int `validate:"required"`
 	RetryAfterSeconds int `validate:"required"`
 	Length            int `validate:"required"`
+	TestPhone         string
 }
 
 func (c otpConfig) validity() time.Duration {
