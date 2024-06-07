@@ -53,7 +53,7 @@ func (c otpConfig) retryAfter() time.Duration {
 type (
 	SendOTPRequest struct {
 		Phone    string `json:"phone" binding:"required"`
-		DialCode string `json:"dial_code" binding:"required"`
+		DialCode string `json:"dial_code"`
 		Country  string `json:"country"`
 		Locale   string `json:"locale"`
 	}

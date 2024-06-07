@@ -51,7 +51,7 @@ func (a *Controller) SendOTP(c *gin.Context, r SendOTPRequest) (*SendOTPResponse
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("otp sent successfully request=%+v", r)
+	log.Printf("auth: otp sent successfully request=%+v", r)
 
 	return &SendOTPResponse{
 		RetryAfter:  res.RetryAfter,
