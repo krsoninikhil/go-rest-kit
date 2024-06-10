@@ -67,8 +67,8 @@ func (c *Controller[M, S, R]) Update(ctx *gin.Context, p ResourceParam, req R) e
 	return err
 }
 
-func (c *Controller[M, S, R]) Delete(ctx *gin.Context, id int) error {
-	res, err := c.Svc.Get(ctx, id)
+func (c *Controller[M, S, R]) Delete(ctx *gin.Context, p ResourceParam) error {
+	res, err := c.Svc.Get(ctx, p.ID)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (c *Controller[M, S, R]) Delete(ctx *gin.Context, id int) error {
 	if mc, ok := any(model).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
 		return apperrors.NewPermissionError(model.ResourceName())
 	}
-	return c.Svc.Delete(ctx, id)
+	return c.Svc.Delete(ctx, p.ID)
 }
 
 func (c *Controller[M, S, R]) List(ctx *gin.Context, p ListParam) (*ListResponse[S], error) {
