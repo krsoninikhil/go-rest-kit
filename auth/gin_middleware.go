@@ -17,8 +17,8 @@ type tokenSvc interface {
 
 func GinStdMiddleware(conf Config) gin.HandlerFunc {
 	return GinMiddleware(NewStdClaimsSvc(
-		time.Duration(conf.AccessTokenValiditySeconds),
-		time.Duration(conf.RefreshTokenValiditySeconds),
+		time.Duration(conf.accessTokenValidity()),
+		time.Duration(conf.refreshTokenValidity()),
 		conf.SecretKey,
 	))
 }
