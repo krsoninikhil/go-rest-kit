@@ -44,7 +44,7 @@ func (c *Controller[M, S, R]) Retrieve(ctx *gin.Context, p ResourceParam) (*S, e
 	}
 	model := *res
 
-	if mc, ok := any(model).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
+	if mc, ok := any(res).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
 		return nil, apperrors.NewPermissionError(model.ResourceName())
 	}
 
@@ -59,7 +59,7 @@ func (c *Controller[M, S, R]) Retrieve(ctx *gin.Context, p ResourceParam) (*S, e
 func (c *Controller[M, S, R]) Update(ctx *gin.Context, p ResourceParam, req R) error {
 	model := req.ToModel(ctx)
 
-	if mc, ok := any(model).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
+	if mc, ok := any(&model).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
 		return apperrors.NewPermissionError(model.ResourceName())
 	}
 
@@ -74,7 +74,7 @@ func (c *Controller[M, S, R]) Delete(ctx *gin.Context, p ResourceParam) error {
 	}
 	model := *res
 
-	if mc, ok := any(model).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
+	if mc, ok := any(res).(ModelWithCreator); ok && mc.CreatedByID() != auth.UserID(ctx) {
 		return apperrors.NewPermissionError(model.ResourceName())
 	}
 	return c.Svc.Delete(ctx, p.ID)
@@ -90,7 +90,7 @@ func (c *Controller[M, S, R]) List(ctx *gin.Context, p ListParam) (*ListResponse
 		model     M
 		creatorID int
 	)
-	if _, ok := any(model).(ModelWithCreator); ok {
+	if _, ok := any(&model).(ModelWithCreator); ok {
 		creatorID = auth.UserID(ctx)
 	}
 

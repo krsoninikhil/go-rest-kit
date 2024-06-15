@@ -72,7 +72,7 @@ func (db *Dao[M]) List(ctx context.Context, after int, limit int, creatorID int)
 	var m M
 	q := db.DB(ctx).Model(m)
 
-	if mc, ok := any(m).(ModelWithCreator); ok {
+	if mc, ok := any(&m).(ModelWithCreator); ok {
 		mc.SetCreatedBy(creatorID)
 		q = q.Where(mc)
 	} else if nm, ok := any(m).(NestedModel[M]); ok {
