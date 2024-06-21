@@ -27,7 +27,9 @@ type Dao[M Model] struct {
 }
 
 func (db *Dao[M]) Create(ctx context.Context, m M) (*M, error) {
-	if err := db.DB(ctx).Create(&m).Error; err != nil {
+	if err := db.DB(ctx).Create(&m).Error; errors.Is(err, gorm.ErrDuplicatedKey) {
+		return nil, apperrors.NewConflictError(m.ResourceName(), err)
+	} else if err != nil {
 		return nil, apperrors.NewServerError(err)
 	}
 	return &m, nil

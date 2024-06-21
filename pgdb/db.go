@@ -41,7 +41,7 @@ func NewPGConnection(ctx context.Context, config Config) *PGDB {
 	} else {
 		dsn = fmt.Sprintf("%s sslmode=disable", dsn)
 	}
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
 		log.Fatal("failed to connect postgres", err)
 	}

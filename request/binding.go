@@ -73,7 +73,7 @@ func Respond(c *gin.Context, res any, err error) {
 
 	// log causes of server errors
 	if severErr, ok := appError.(apperrors.ServerError); ok && severErr.Cause != nil {
-		log.Print("server error cause: ", severErr.Cause.Error())
+		log.Printf("server error cause: %T: %+v\n", severErr, severErr.Cause)
 	}
 
 	c.JSON(appError.HTTPCode(), appError.HTTPResponse())
