@@ -28,6 +28,7 @@ type (
 	NestedResRequest[M NestedModel[M]] interface {
 		ToModel(*gin.Context) M
 	}
+	NestedBulkCreateRequest[M NestedModel[M], R NestedResRequest[M]] []R
 
 	// NestedController represents crud controller taking model, request and response object
 	// as type param. Response object dependency could be eliminated if model has a
@@ -99,7 +100,7 @@ func (c *NestedController[M, S, R]) Delete(ctx *gin.Context, p NestedResourcePar
 	return nil
 }
 
-func (c NestedController[M, S, R]) List(ctx *gin.Context, p NestedParam) (*ListResponse[S], error) {
+func (c *NestedController[M, S, R]) List(ctx *gin.Context, p NestedParam) (*ListResponse[S], error) {
 	items, total, err := c.Svc.List(ctx, p.After, p.Limit, p.ParentID)
 	if err != nil {
 		return nil, err
@@ -114,4 +115,15 @@ func (c NestedController[M, S, R]) List(ctx *gin.Context, p NestedParam) (*ListR
 		res = append(res, response)
 	}
 	return &ListResponse[S]{Items: res, Total: total, NextAfter: GetLastItemID(res)}, nil
+}
+
+func (c *NestedController[M, S, R]) BulkCreate(ctx *gin.Context, p NestedParam, reqs NestedBulkCreateRequest[M, R]) (*S, error) {
+	var models = make([]M, len(reqs))
+	for i, req := range reqs {
+		models[i] = req.ToModel(ctx).SetParentID(p.ParentID)
+	}
+	if err := c.Svc.BulkCreate(ctx, models); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
