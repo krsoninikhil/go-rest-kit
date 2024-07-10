@@ -22,8 +22,7 @@ type (
 	}
 	NestedParam struct {
 		ParentID int `uri:"parentID" binding:"required"`
-		After    int `form:"after" binding:"omitempty,min=0"`
-		Limit    int `form:"limit,default=10" binding:"omitempty,min=1,max=100" default:"25"`
+		ListParam
 	}
 	NestedResRequest[M NestedModel[M]] interface {
 		ToModel(*gin.Context) M
