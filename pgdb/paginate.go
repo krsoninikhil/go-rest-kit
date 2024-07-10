@@ -26,10 +26,11 @@ func Paginate(page Page, afterField string) func(db *gorm.DB) *gorm.DB {
 		}
 		if page.After > 0 {
 			db = db.Where(afterField+" > ?", page.After)
-			db = db.Order(afterField + " ASC")
 		}
 		if page.Page > 0 {
 			db = db.Offset(page.Offset())
+		} else {
+			db = db.Order(afterField + " ASC")
 		}
 		return db.Limit(page.Limit)
 	}
