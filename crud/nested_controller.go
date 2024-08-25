@@ -100,7 +100,7 @@ func (c *NestedController[M, S, R]) Delete(ctx *gin.Context, p NestedResourcePar
 }
 
 func (c *NestedController[M, S, R]) List(ctx *gin.Context, p NestedParam) (*ListResponse[S], error) {
-	items, total, err := c.Svc.List(ctx, p.After, p.Limit, p.ParentID)
+	items, total, err := c.Svc.List(ctx, p.QueryPage(), p.ParentID)
 	if err != nil {
 		return nil, err
 	}

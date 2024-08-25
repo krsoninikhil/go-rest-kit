@@ -94,7 +94,7 @@ func (c *Controller[M, S, R]) List(ctx *gin.Context, p ListParam) (*ListResponse
 		creatorID = auth.UserID(ctx)
 	}
 
-	items, total, err := c.Svc.List(ctx, p.After, p.Limit, creatorID)
+	items, total, err := c.Svc.List(ctx, p.QueryPage(), creatorID)
 	if err != nil {
 		return nil, err
 	}

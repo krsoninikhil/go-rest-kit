@@ -7,7 +7,6 @@ import (
 	"github.com/krsoninikhil/go-rest-kit/apperrors"
 	"github.com/krsoninikhil/go-rest-kit/pgdb"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Model interface {
@@ -47,7 +46,12 @@ func (db *Dao[M]) Update(ctx context.Context, id int, m M) (*M, error) {
 
 func (db *Dao[M]) Get(ctx context.Context, id int) (*M, error) {
 	var m M
-	if err := db.DB(ctx).Where("id = ?", id).Preload(clause.Associations).First(&m).Error; err != nil {
+	q := db.DB(ctx).Model(m)
+	tableName := q.Statement.Table
+	for _, joins := range m.Joins() {
+		q = q.Joins(joins)
+	}
+	if err := q.Where(tableName+".id = ?", id).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, apperrors.NewNotFoundError(m.ResourceName())
 		}
@@ -70,7 +74,7 @@ func (db *Dao[M]) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-func (db *Dao[M]) List(ctx context.Context, after int, limit int, creatorID int) (res []M, total int64, err error) {
+func (db *Dao[M]) List(ctx context.Context, page pgdb.Page, creatorID int) (res []M, total int64, err error) {
 	var m M
 	q := db.DB(ctx).Model(m)
 
@@ -87,12 +91,12 @@ func (db *Dao[M]) List(ctx context.Context, after int, limit int, creatorID int)
 	}
 
 	tableName := q.Statement.Table
-	q = q.Scopes(pgdb.Paginate(pgdb.Page{After: after, Limit: limit}, tableName+".id"))
+	q = q.Scopes(pgdb.Paginate(page, tableName+".id"))
 	for _, joins := range m.Joins() {
-		q.Joins(joins)
+		q.Preload(joins)
 	}
 
-	if err := q.Scan(&res).Error; err != nil {
+	if err := q.Find(&res).Error; err != nil {
 		return nil, total, apperrors.NewServerError(err)
 	}
 	return

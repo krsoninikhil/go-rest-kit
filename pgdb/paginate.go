@@ -11,6 +11,14 @@ type Page struct {
 	After int `form:"after"`
 }
 
+func NewPage(page, after, limit int) Page {
+	return Page{
+		Page:  page,
+		Limit: limit,
+		After: after,
+	}
+}
+
 func (p Page) Offset() int {
 	currentPage := p.Page
 	if currentPage > 0 {
@@ -26,11 +34,9 @@ func Paginate(page Page, afterField string) func(db *gorm.DB) *gorm.DB {
 		}
 		if page.After > 0 {
 			db = db.Where(afterField+" > ?", page.After)
-		}
-		if page.Page > 0 {
-			db = db.Offset(page.Offset())
-		} else {
 			db = db.Order(afterField + " ASC")
+		} else if page.Page > 0 {
+			db = db.Offset(page.Offset())
 		}
 		return db.Limit(page.Limit)
 	}

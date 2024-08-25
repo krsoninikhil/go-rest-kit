@@ -11,7 +11,7 @@ type Service[M any] interface {
 	Create(ctx context.Context, m M) (*M, error)
 	Update(ctx context.Context, id int, m M) (*M, error)
 	Delete(ctx context.Context, id int) error
-	List(ctx context.Context, after int, limit int, creatorID int) (res []M, total int64, err error)
+	List(ctx context.Context, page pgdb.Page, creatorID int) (res []M, total int64, err error)
 	BulkCreate(ctx context.Context, m []M) error
 }
 
