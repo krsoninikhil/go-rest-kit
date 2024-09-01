@@ -58,3 +58,9 @@ func (db *PGDB) Migrate(ctx context.Context, models []any) {
 	}
 	db.db.Logger = curentLogger
 }
+
+func (db *PGDB) TableName(m any) string {
+	stmt := &gorm.Statement{DB: db.db}
+	stmt.Parse(m)
+	return stmt.Schema.Table
+}

@@ -47,10 +47,11 @@ func (db *Dao[M]) Update(ctx context.Context, id int, m M) (*M, error) {
 func (db *Dao[M]) Get(ctx context.Context, id int) (*M, error) {
 	var m M
 	q := db.DB(ctx).Model(m)
-	tableName := q.Statement.Table
 	for _, joins := range m.Joins() {
 		q = q.Joins(joins)
 	}
+
+	tableName := db.TableName(m)
 	if err := q.Where(tableName+".id = ?", id).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, apperrors.NewNotFoundError(m.ResourceName())
