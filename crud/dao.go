@@ -48,7 +48,7 @@ func (db *Dao[M]) Get(ctx context.Context, id int) (*M, error) {
 	var m M
 	q := db.DB(ctx).Model(m)
 	for _, joins := range m.Joins() {
-		q = q.Joins(joins)
+		q = q.Preload(joins) // Join here would have been better but that wouldn't allow fetch related array fields
 	}
 
 	tableName := db.TableName(m)
