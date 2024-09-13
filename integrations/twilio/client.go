@@ -21,11 +21,11 @@ type Client struct {
 
 func NewClient(config Config) *Client {
 	base := sling.New().Base("https://api.twilio.com/2010-04-01/Accounts/" + config.AccountSID + "/")
-	sling := base.New().
+	slingClient := base.New().
 		Set("Accept", "application/json").
 		Set("Content-Type", "application/x-www-form-urlencoded").
 		SetBasicAuth(config.AccountSID, config.AuthToken)
-	return &Client{config: config, sling: sling}
+	return &Client{config: config, sling: slingClient}
 }
 
 func (c *Client) SendSMS(toNumber, message string) error {

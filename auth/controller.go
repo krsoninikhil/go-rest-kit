@@ -47,11 +47,12 @@ func NewController(authSvc AuthService, otpSvc OTPSvcI, cacheClient cacheClient)
 }
 
 func (a *Controller) SendOTP(c *gin.Context, r SendOTPRequest) (*SendOTPResponse, error) {
+	log.Printf("auth: sending otp request=%+v", r)
 	res, err := a.otpSvc.Send(c, r.Phone)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("auth: otp sent successfully request=%+v", r)
+	log.Printf("auth: otp sent successfully")
 
 	return &SendOTPResponse{
 		RetryAfter:  res.RetryAfter,

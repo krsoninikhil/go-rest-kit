@@ -3,6 +3,7 @@ package auth
 import (
 	"time"
 
+	"github.com/krsoninikhil/go-rest-kit/integrations/fast2sms"
 	"github.com/krsoninikhil/go-rest-kit/integrations/twilio"
 )
 
@@ -18,11 +19,12 @@ const (
 
 // Config holds the configuration for auth service
 type Config struct {
-	SecretKey                   string        `validate:"required" log:"-"`
-	AccessTokenValiditySeconds  int           `validate:"required"`
-	RefreshTokenValiditySeconds int           `validate:"required"`
-	OTP                         otpConfig     `validate:"required"`
-	Twilio                      twilio.Config `validate:"required"`
+	SecretKey                   string          `validate:"required" log:"-"`
+	AccessTokenValiditySeconds  int             `validate:"required"`
+	RefreshTokenValiditySeconds int             `validate:"required"`
+	OTP                         otpConfig       `validate:"required"`
+	Twilio                      twilio.Config   `validate:"required"`
+	Fast2SMS                    fast2sms.Config `validate:"required"`
 }
 
 func (c Config) accessTokenValidity() time.Duration {

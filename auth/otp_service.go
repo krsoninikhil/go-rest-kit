@@ -72,7 +72,7 @@ func (s otpSvc) Send(ctx context.Context, phone string) (*OTPStatus, error) {
 	if s.config.TestPhone == phone {
 		otp = testOTP
 	} else {
-		if err := s.smsProvider.SendSMS(phone, otpMessage(otp)); err != nil {
+		if err := s.smsProvider.SendSMS(phone, otp); err != nil {
 			return nil, errors.Wrap(err, "unable to send otp")
 		}
 	}
