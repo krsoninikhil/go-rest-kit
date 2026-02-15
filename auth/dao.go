@@ -13,6 +13,7 @@ import (
 type UserModel interface {
 	SetPhone(string) UserModel
 	SetSignupInfo(SigupInfo) UserModel
+	SetOAuthInfo(OAuthUserInfo) UserModel
 	PK() int
 	ResourceName() string
 }
@@ -60,6 +61,34 @@ func (d *userDao[U]) GetByPhone(ctx context.Context, phone string) (int, error) 
 			return 0, apperrors.NewNotFoundError(user.ResourceName())
 		}
 		return 0, apperrors.NewServerError(err)
+	}
+	return user.PK(), nil
+}
+
+func (d *userDao[U]) GetByEmail(ctx context.Context, email string) (int, error) {
+	var user U
+	err := d.PGDB.DB(ctx).Where("email = ?", email).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, apperrors.NewNotFoundError(user.ResourceName())
+		}
+		return 0, apperrors.NewServerError(err)
+	}
+	return user.PK(), nil
+}
+
+func (d *userDao[U]) UpsertByEmail(ctx context.Context, oauthInfo OAuthUserInfo) (int, error) {
+	var user U
+	user = user.SetOAuthInfo(oauthInfo).(U)
+	err := d.PGDB.DB(ctx).Clauses(
+		clause.Returning{Columns: []clause.Column{{Name: "id"}}},
+		clause.OnConflict{
+			Columns:   []clause.Column{{Name: "email"}},
+			DoNothing: true,
+		},
+	).Create(&user).Error
+	if err != nil {
+		return 0, err
 	}
 	return user.PK(), nil
 }

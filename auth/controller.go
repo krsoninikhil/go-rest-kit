@@ -2,26 +2,22 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/krsoninikhil/go-rest-kit/apperrors"
 )
 
 // dependencies
 type (
-	OAuthProvider interface {
-		Initiate()
-		Verify()
-	}
 	OTPSvcI interface {
 		Send(ctx context.Context, phone string) (*OTPStatus, error)
 		Verify(ctx context.Context, phone, otp string) error
 	}
-	AuthGSI interface {
-		VerifyToken()
-	}
 	AuthService interface {
 		UpsertUser(ctx context.Context, u SigupInfo) (*Token, error)
+		UpsertOAuthUser(ctx context.Context, oauthInfo OAuthUserInfo) (*Token, error)
 		RefreshToken(ctx context.Context, refreshToken string) (*Token, error)
 	}
 	LocalSvc interface {
@@ -30,20 +26,33 @@ type (
 )
 
 type Controller struct {
-	authSvc   AuthService
-	otpSvc    OTPSvcI
-	localeSvc LocalSvc
-	// googleSvc OAuthProvider
-	// appleSvc  OAuthProvider
-	// googleGSI AuthGSI
+	authSvc        AuthService
+	otpSvc         OTPSvcI
+	oauthProviders map[string]OAuthProvider // Map of provider name to provider implementation
+	localeSvc      LocalSvc
 }
 
 func NewController(authSvc AuthService, otpSvc OTPSvcI, cacheClient cacheClient) *Controller {
 	return &Controller{
-		authSvc:   authSvc,
-		otpSvc:    otpSvc,
-		localeSvc: NewLocaleSvc(cacheClient),
+		authSvc:        authSvc,
+		otpSvc:         otpSvc,
+		oauthProviders: make(map[string]OAuthProvider),
+		localeSvc:      NewLocaleSvc(cacheClient),
 	}
+}
+
+// WithOAuthProvider adds an OAuth provider to the controller
+func (c *Controller) WithOAuthProvider(provider OAuthProvider) *Controller {
+	c.oauthProviders[provider.ProviderName()] = provider
+	return c
+}
+
+// WithOAuthProviders adds multiple OAuth providers to the controller
+func (c *Controller) WithOAuthProviders(providers ...OAuthProvider) *Controller {
+	for _, provider := range providers {
+		c.oauthProviders[provider.ProviderName()] = provider
+	}
+	return c
 }
 
 func (a *Controller) SendOTP(c *gin.Context, r SendOTPRequest) (*SendOTPResponse, error) {
@@ -72,6 +81,40 @@ func (a *Controller) VerifyOTP(c *gin.Context, r VerifyOTPRequest) (*VerifyOTPRe
 	}
 
 	return &VerifyOTPResponse{
+		AccessToken:      res.AccessToken,
+		RefreshToken:     res.RefreshToken,
+		ExpiresIn:        res.ExpiresIn,
+		RefreshExpiresIn: res.RefreshExpiresIn,
+	}, nil
+}
+
+func (a *Controller) OAuthAuth(c *gin.Context, r OAuthAuthRequest) (*OAuthAuthResponse, error) {
+	// Get the appropriate OAuth provider
+	provider, exists := a.oauthProviders[r.Provider]
+	if !exists {
+		log.Printf("auth: oauth provider '%s' not configured", r.Provider)
+		return nil, apperrors.NewInvalidParamsError("provider",
+			fmt.Errorf("provider '%s' not configured or not supported", r.Provider))
+	}
+
+	log.Printf("auth: exchanging %s auth code", r.Provider)
+	oauthUserInfo, err := provider.ExchangeCode(c, r.Code)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set locale from request if provided
+	if r.Locale != "" {
+		oauthUserInfo.Locale = r.Locale
+	}
+
+	log.Printf("auth: upserting %s user: %s", r.Provider, oauthUserInfo.Email)
+	res, err := a.authSvc.UpsertOAuthUser(c, *oauthUserInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &OAuthAuthResponse{
 		AccessToken:      res.AccessToken,
 		RefreshToken:     res.RefreshToken,
 		ExpiresIn:        res.ExpiresIn,

@@ -11,6 +11,8 @@ import (
 type UserDao interface {
 	Create(ctx context.Context, u SigupInfo) (userID int, err error)
 	GetByPhone(ctx context.Context, phone string) (userID int, err error)
+	GetByEmail(ctx context.Context, email string) (userID int, err error)
+	UpsertByEmail(ctx context.Context, oauthInfo OAuthUserInfo) (userID int, err error)
 }
 
 type TokenSvc interface {
@@ -51,6 +53,15 @@ func (s *Service) UpsertUser(ctx context.Context, u SigupInfo) (*Token, error) {
 		} else {
 			return nil, apperrors.NewServerError(fmt.Errorf("error getting user: %v", err))
 		}
+	}
+
+	return s.generateToken(fmt.Sprintf("%d", userID))
+}
+
+func (s *Service) UpsertOAuthUser(ctx context.Context, oauthInfo OAuthUserInfo) (*Token, error) {
+	userID, err := s.userDao.UpsertByEmail(ctx, oauthInfo)
+	if err != nil {
+		return nil, apperrors.NewServerError(fmt.Errorf("error upserting oauth user: %v", err))
 	}
 
 	return s.generateToken(fmt.Sprintf("%d", userID))

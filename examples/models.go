@@ -9,12 +9,15 @@ import (
 )
 
 type User struct {
-	Name     string
-	Email    sql.NullString `gorm:"uniqueIndex"`
-	Phone    string         `gorm:"uniqueIndex"`
-	DialCode string
-	Country  string
-	Locale   string
+	Name          string
+	Email         sql.NullString `gorm:"uniqueIndex"`
+	Phone         string         `gorm:"uniqueIndex"`
+	DialCode      string
+	Country       string
+	Locale        string
+	OAuthID       string `gorm:"uniqueIndex"` // Provider-specific user ID
+	OAuthProvider string                      // "google", "twitter", "linkedin", etc.
+	Picture       string
 	pgdb.BaseModel
 }
 
@@ -29,6 +32,19 @@ func (u User) SetSignupInfo(info auth.SigupInfo) auth.UserModel {
 	u.DialCode = info.DialCode
 	u.Country = info.Country
 	u.Locale = info.Locale
+	return u
+}
+
+// SetOAuthInfo enables OAuth authentication (Google, Twitter, LinkedIn, etc.)
+func (u User) SetOAuthInfo(info auth.OAuthUserInfo) auth.UserModel {
+	u.Email = sql.NullString{String: info.Email, Valid: info.Email != ""}
+	u.Name = info.Name
+	u.Picture = info.Picture
+	u.OAuthID = info.ProviderID
+	u.OAuthProvider = info.Provider
+	if info.Locale != "" {
+		u.Locale = info.Locale
+	}
 	return u
 }
 
