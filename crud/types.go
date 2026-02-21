@@ -3,7 +3,7 @@ package crud
 import (
 	"context"
 
-	"github.com/krsoninikhil/go-rest-kit/pgdb"
+	"github.com/krsoninikhil/go-rest-kit/sqldb"
 )
 
 type Service[M any] interface {
@@ -11,7 +11,7 @@ type Service[M any] interface {
 	Create(ctx context.Context, m M) (*M, error)
 	Update(ctx context.Context, id int, m M) (*M, error)
 	Delete(ctx context.Context, id int) error
-	List(ctx context.Context, page pgdb.Page, creatorID int) (res []M, total int64, err error)
+	List(ctx context.Context, page sqldb.Page, creatorID int) (res []M, total int64, err error)
 	BulkCreate(ctx context.Context, m []M) error
 }
 
@@ -41,8 +41,8 @@ type (
 	}
 )
 
-func (p ListParam) QueryPage() pgdb.Page {
-	return pgdb.Page{
+func (p ListParam) QueryPage() sqldb.Page {
+	return sqldb.Page{
 		After: p.After,
 		Limit: p.Limit,
 		Page:  p.Page,

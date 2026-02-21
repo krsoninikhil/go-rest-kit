@@ -5,7 +5,8 @@ import (
 	"errors"
 
 	"github.com/krsoninikhil/go-rest-kit/apperrors"
-	"github.com/krsoninikhil/go-rest-kit/pgdb"
+	pgdb "github.com/krsoninikhil/go-rest-kit/sqldb"
+	sqldb "github.com/krsoninikhil/go-rest-kit/sqldb"
 	"gorm.io/gorm"
 )
 
@@ -22,7 +23,7 @@ type ModelWithCreator interface {
 }
 
 type Dao[M Model] struct {
-	*pgdb.PGDB
+	*sqldb.PGDB
 }
 
 func (db *Dao[M]) Create(ctx context.Context, m M) (*M, error) {

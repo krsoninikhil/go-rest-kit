@@ -10,8 +10,8 @@ import (
 	"github.com/krsoninikhil/go-rest-kit/config"
 	"github.com/krsoninikhil/go-rest-kit/crud"
 	"github.com/krsoninikhil/go-rest-kit/integrations/twilio"
-	"github.com/krsoninikhil/go-rest-kit/pgdb"
 	"github.com/krsoninikhil/go-rest-kit/request"
+	"github.com/krsoninikhil/go-rest-kit/sqldb"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 
 	// connnections
 	var (
-		db    = pgdb.NewPGConnection(ctx, conf.DB)
+		db    = sqldb.NewPGConnection(ctx, conf.DB)
 		cache = cache.NewInMemory()
 	)
 

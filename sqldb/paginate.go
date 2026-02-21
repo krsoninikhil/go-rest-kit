@@ -1,4 +1,4 @@
-package pgdb
+package sqldb
 
 import "gorm.io/gorm"
 

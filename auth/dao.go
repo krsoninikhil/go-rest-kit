@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/krsoninikhil/go-rest-kit/apperrors"
-	"github.com/krsoninikhil/go-rest-kit/pgdb"
+	"github.com/krsoninikhil/go-rest-kit/sqldb"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -19,10 +19,10 @@ type UserModel interface {
 }
 
 type userDao[U UserModel] struct {
-	*pgdb.PGDB
+	*sqldb.PGDB
 }
 
-func NewUserDao[U UserModel](db *pgdb.PGDB) *userDao[U] {
+func NewUserDao[U UserModel](db *sqldb.PGDB) *userDao[U] {
 	return &userDao[U]{db}
 }
 

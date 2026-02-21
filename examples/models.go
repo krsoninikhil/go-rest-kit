@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/krsoninikhil/go-rest-kit/auth"
-	"github.com/krsoninikhil/go-rest-kit/pgdb"
+	"github.com/krsoninikhil/go-rest-kit/sqldb"
 )
 
 type User struct {
@@ -16,9 +16,9 @@ type User struct {
 	Country       string
 	Locale        string
 	OAuthID       string `gorm:"uniqueIndex"` // Provider-specific user ID
-	OAuthProvider string                      // "google", "twitter", "linkedin", etc.
+	OAuthProvider string // "google", "twitter", "linkedin", etc.
 	Picture       string
-	pgdb.BaseModel
+	sqldb.BaseModel
 }
 
 func (u User) ResourceName() string { return "user" }
@@ -52,7 +52,7 @@ func (u User) SetOAuthInfo(info auth.OAuthUserInfo) auth.UserModel {
 type BusinessType struct {
 	Name string
 	Icon string
-	pgdb.BaseModel
+	sqldb.BaseModel
 }
 
 func (b BusinessType) ResourceName() string { return fmt.Sprintf("%T", b) }
@@ -62,7 +62,7 @@ type Business struct {
 	Name           string
 	BusinessTypeID int
 	OwnerID        int
-	pgdb.BaseModel
+	sqldb.BaseModel
 
 	Type  *BusinessType
 	Owner *User
@@ -78,7 +78,7 @@ func (b Business) SetOwnerID(id int) Business {
 type Product struct {
 	Name       string
 	BusinessID int
-	pgdb.BaseModel
+	sqldb.BaseModel
 
 	Business *Business
 }

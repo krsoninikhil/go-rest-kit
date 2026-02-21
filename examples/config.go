@@ -6,7 +6,7 @@ import (
 	"github.com/krsoninikhil/go-rest-kit/auth"
 	"github.com/krsoninikhil/go-rest-kit/config"
 	"github.com/krsoninikhil/go-rest-kit/integrations/twilio"
-	"github.com/krsoninikhil/go-rest-kit/pgdb"
+	"github.com/krsoninikhil/go-rest-kit/sqldb"
 )
 
 // Set environment variables or add a .env with following values
@@ -16,7 +16,7 @@ import (
 // AUTH_TWILIO_AUTHTOKEN=your-twillio-auth-token
 
 type Config struct {
-	DB     pgdb.Config
+	DB     sqldb.Config
 	Twilio twilio.Config
 	Auth   auth.Config
 	config.BaseConfig
