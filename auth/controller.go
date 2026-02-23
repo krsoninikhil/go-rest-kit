@@ -19,6 +19,7 @@ type (
 		UpsertUser(ctx context.Context, u SigupInfo) (*Token, error)
 		UpsertOAuthUser(ctx context.Context, oauthInfo OAuthUserInfo) (*Token, error)
 		RefreshToken(ctx context.Context, refreshToken string) (*Token, error)
+		CheckUsernameAvailable(ctx context.Context, username string, excludeUserID int) (bool, error)
 	}
 	LocalSvc interface {
 		GetCountryInfo(ctx context.Context, locale string) (*CountryInfoSource, error)
@@ -144,4 +145,14 @@ func (a *Controller) CountryInfo(c *gin.Context, r CountryInfoRequest) (*Country
 
 	res := CountryInfoResponse(*country)
 	return &res, nil
+}
+
+// CheckUsernameAvailability returns whether the username is available for the current user (protected route).
+func (a *Controller) CheckUsernameAvailability(c *gin.Context, param UsernameCheckParam) (*UsernameCheckResponse, error) {
+	userID := UserID(c)
+	available, err := a.authSvc.CheckUsernameAvailable(c.Request.Context(), param.Username, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &UsernameCheckResponse{Available: available}, nil
 }

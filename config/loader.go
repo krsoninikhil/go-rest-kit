@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// BaseConfig can be embedded in application config to define required methods
 type BaseConfig struct {
 	Env string
 }
@@ -37,6 +38,8 @@ func Load(ctx context.Context, target AppConfig) {
 	}
 	target.SetEnv(strings.ToLower(env))
 	viper.SetConfigFile(target.SourcePath())
+	log.Printf("Loading config from %s", target.SourcePath())
+
 	if err := viper.MergeInConfig(); err != nil {
 		log.Fatal(ctx, "error reading environment config file", err)
 	}

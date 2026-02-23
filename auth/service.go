@@ -12,6 +12,7 @@ type UserDao interface {
 	Create(ctx context.Context, u SigupInfo) (userID int, err error)
 	GetByPhone(ctx context.Context, phone string) (userID int, err error)
 	GetByEmail(ctx context.Context, email string) (userID int, err error)
+	GetByUsername(ctx context.Context, username string) (userID int, err error)
 	UpsertByEmail(ctx context.Context, oauthInfo OAuthUserInfo) (userID int, err error)
 }
 
@@ -79,6 +80,21 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 	}
 
 	return s.generateToken(subject)
+}
+
+// CheckUsernameAvailable returns true if the username is available for the given user (not taken, or taken only by excludeUserID).
+func (s *Service) CheckUsernameAvailable(ctx context.Context, username string, excludeUserID int) (bool, error) {
+	if username == "" {
+		return false, nil
+	}
+	userID, err := s.userDao.GetByUsername(ctx, username)
+	if err != nil {
+		if _, ok := err.(apperrors.NotFoundError); ok {
+			return true, nil
+		}
+		return false, err
+	}
+	return userID == excludeUserID, nil
 }
 
 func (s *Service) generateToken(subject string) (*Token, error) {

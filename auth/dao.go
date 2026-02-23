@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/krsoninikhil/go-rest-kit/apperrors"
 	"github.com/krsoninikhil/go-rest-kit/sqldb"
@@ -89,6 +90,23 @@ func (d *userDao[U]) UpsertByEmail(ctx context.Context, oauthInfo OAuthUserInfo)
 	).Create(&user).Error
 	if err != nil {
 		return 0, err
+	}
+	fmt.Println("user.PK()", user.PK())
+	// When conflict happened, Create did nothing and user.ID is still 0 — fetch existing user by email
+	if user.PK() == 0 {
+		return d.GetByEmail(ctx, oauthInfo.Email)
+	}
+	return user.PK(), nil
+}
+
+func (d *userDao[U]) GetByUsername(ctx context.Context, username string) (int, error) {
+	var user U
+	err := d.PGDB.DB(ctx).Where("username = ?", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, apperrors.NewNotFoundError(user.ResourceName())
+		}
+		return 0, apperrors.NewServerError(err)
 	}
 	return user.PK(), nil
 }

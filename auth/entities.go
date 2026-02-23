@@ -59,6 +59,14 @@ type (
 		ExpiresIn        int64  `json:"expires_in"`
 		RefreshExpiresIn int64  `json:"refresh_expires_in"`
 	}
+
+	// UsernameCheckParam is the path param for GET /username/check/:username (protected)
+	UsernameCheckParam struct {
+		Username string `uri:"username" binding:"required,min=3,max=50,alphanum"`
+	}
+	UsernameCheckResponse struct {
+		Available bool `json:"available"`
+	}
 )
 
 // dto
