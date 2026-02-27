@@ -61,6 +61,41 @@ func GinMiddleware(tokenSvc tokenSvc) gin.HandlerFunc {
 	}
 }
 
+// OptionalGinStdMiddleware returns a middleware that parses JWT when present and sets user in context;
+// it never aborts, so routes can be public but still know the viewer's user_id when a valid token is sent.
+func OptionalGinStdMiddleware(conf Config) gin.HandlerFunc {
+	tokenSvc := NewStdClaimsSvc(
+		time.Duration(conf.accessTokenValidity()),
+		time.Duration(conf.refreshTokenValidity()),
+		conf.SecretKey,
+	)
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.Next()
+			return
+		}
+		parsedToken, err := tokenSvc.VerifyToken(parts[1])
+		if err != nil {
+			c.Next()
+			return
+		}
+		sub, err := tokenSvc.ValidateAccessTokenClaims(parsedToken.Claims)
+		if err != nil {
+			c.Next()
+			return
+		}
+		c.Set(CtxKeyTokenClaims, parsedToken.Claims)
+		c.Set(CtxKeyUserID, sub)
+		c.Next()
+	}
+}
+
 func UserID(c *gin.Context) int {
 	val, exists := c.Get(CtxKeyUserID)
 	if !exists || val == nil {

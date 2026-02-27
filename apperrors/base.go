@@ -1,5 +1,7 @@
 package apperrors
 
+import "fmt"
+
 type AppError interface {
 	error
 	HTTPCode() int
@@ -11,7 +13,12 @@ type baseError struct {
 	Resource string
 }
 
-func (e baseError) Error() string { return e.Cause.Error() }
+func (e baseError) Error() string {
+	if e.Cause != nil {
+		return e.Cause.Error()
+	}
+	return fmt.Sprintf("error in %s", e.Resource)
+}
 
 func (e baseError) httpResponse(title string) map[string]any {
 	return map[string]any{
