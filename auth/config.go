@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"strings"
 	"time"
 
 	"github.com/krsoninikhil/go-rest-kit/integrations/fast2sms"
@@ -32,6 +33,7 @@ type otpConfig struct {
 	MaxAttempts       int `validate:"required"`
 	RetryAfterSeconds int `validate:"required"`
 	Length            int `validate:"required"`
+	Organisation      string
 	TestPhone         string
 	TestEmail         string
 }
@@ -41,6 +43,10 @@ func (c otpConfig) validity() time.Duration {
 }
 func (c otpConfig) retryAfter() time.Duration {
 	return time.Duration(c.RetryAfterSeconds) * time.Second
+}
+
+func (c otpConfig) brandName() string {
+	return strings.TrimSpace(c.Organisation)
 }
 
 // OAuthConfig holds the configuration for OAuth providers (Google, Twitter, LinkedIn, etc.)

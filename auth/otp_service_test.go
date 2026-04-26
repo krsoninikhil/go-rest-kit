@@ -59,6 +59,7 @@ func TestOTPSvc_SMS_DefaultChannelCompatibility(t *testing.T) {
 		MaxAttempts:       5,
 		RetryAfterSeconds: 30,
 		Length:            6,
+		Organisation:      "FaithLabs",
 	}, sms, cache.NewInMemory())
 
 	res, err := svc.Send(context.Background(), "+12345678901", OTPChannelSMS)
@@ -72,7 +73,12 @@ func TestOTPSvc_SMS_DefaultChannelCompatibility(t *testing.T) {
 		t.Fatalf("expected sms otp body to be set")
 	}
 
-	err = svc.Verify(context.Background(), "+12345678901", sms.lastBody, OTPChannelSMS)
+	re := regexp.MustCompile(`\d{6}`)
+	otp := re.FindString(sms.lastBody)
+	if len(otp) != 6 {
+		t.Fatalf("otp not found in sms body: %s", sms.lastBody)
+	}
+	err = svc.Verify(context.Background(), "+12345678901", otp, OTPChannelSMS)
 	if err != nil {
 		t.Fatalf("verify otp failed: %v", err)
 	}
@@ -86,6 +92,7 @@ func TestOTPSvc_EmailChannel(t *testing.T) {
 		MaxAttempts:       5,
 		RetryAfterSeconds: 30,
 		Length:            6,
+		Organisation:      "FaithLabs",
 	}, sms, cache.NewInMemory()).WithEmailProvider(email)
 
 	res, err := svc.Send(context.Background(), "reader@example.com", OTPChannelEmail)
@@ -98,7 +105,7 @@ func TestOTPSvc_EmailChannel(t *testing.T) {
 	if email.lastTo != "reader@example.com" {
 		t.Fatalf("unexpected email target: %s", email.lastTo)
 	}
-	if email.lastSubject != "Your verification code" {
+	if email.lastSubject != "Your FaithLabs verification code" {
 		t.Fatalf("unexpected email subject: %s", email.lastSubject)
 	}
 	if email.lastBody == "" {
@@ -123,6 +130,7 @@ func TestOTPSvc_ChannelDefaultsToSMS(t *testing.T) {
 		MaxAttempts:       5,
 		RetryAfterSeconds: 30,
 		Length:            6,
+		Organisation:      "FaithLabs",
 	}, sms, cache.NewInMemory())
 
 	_, err := svc.Send(context.Background(), "+12345678901", "")
@@ -131,6 +139,9 @@ func TestOTPSvc_ChannelDefaultsToSMS(t *testing.T) {
 	}
 	if sms.lastBody == "" {
 		t.Fatalf("expected sms body for default channel")
+	}
+	if !regexp.MustCompile(`FaithLabs`).MatchString(sms.lastBody) {
+		t.Fatalf("expected organisation name in sms body: %s", sms.lastBody)
 	}
 }
 
@@ -142,6 +153,7 @@ func TestOTPSvc_TestEmailSkipsSending(t *testing.T) {
 		MaxAttempts:       5,
 		RetryAfterSeconds: 30,
 		Length:            6,
+		Organisation:      "FaithLabs",
 		TestEmail:         "engineering@faithlabs.io",
 	}, sms, cache.NewInMemory()).WithEmailProvider(email)
 

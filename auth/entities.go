@@ -1,6 +1,13 @@
 package auth
 
-import "strings"
+import (
+	"errors"
+	"fmt"
+	"net/mail"
+	"strings"
+
+	"github.com/krsoninikhil/go-rest-kit/apperrors"
+)
 
 const (
 	CtxKeyTokenClaims string = "tokenClaims"
@@ -144,4 +151,25 @@ func (r SendOTPRequest) OTPChannel() string {
 		return OTPChannelSMS
 	}
 	return channel
+}
+
+func (r SendOTPRequest) resolveOTPInputs() (string, string, error) {
+	target := r.OTPDestination()
+	channel := r.OTPChannel()
+	if target == "" {
+		return "", "", apperrors.NewInvalidParamsError("target", errors.New("phone or target is required"))
+	}
+	switch channel {
+	case OTPChannelSMS:
+		if err := validatePhone(target); err != nil {
+			return "", "", apperrors.NewInvalidParamsError("phone", err)
+		}
+	case OTPChannelEmail:
+		if _, err := mail.ParseAddress(target); err != nil {
+			return "", "", apperrors.NewInvalidParamsError("email", errors.New("invalid email address"))
+		}
+	default:
+		return "", "", apperrors.NewInvalidParamsError("channel", fmt.Errorf("unsupported channel: %s", channel))
+	}
+	return target, channel, nil
 }

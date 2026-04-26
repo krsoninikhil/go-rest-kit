@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"net/mail"
 	"strings"
 	"time"
 
@@ -28,9 +27,10 @@ type (
 )
 
 const (
-	OTPChannelSMS   = "sms"
-	OTPChannelEmail = "email"
-	otpEmailSubject = "Your verification code"
+	OTPChannelSMS         = "sms"
+	OTPChannelEmail       = "email"
+	otpExpiryHintTemplate = "Your %s OTP code is %s. It expires shortly."
+	otpSubjectTemplate    = "Your %s verification code"
 )
 
 type otpMetaData struct {
@@ -60,11 +60,8 @@ func (s otpSvc) WithEmailProvider(provider emailProvider) otpSvc {
 }
 
 func (s otpSvc) Send(ctx context.Context, target, channel string) (*OTPStatus, error) {
-	channel = normalizeOTPChannel(channel)
-	target = strings.TrimSpace(target)
 	attempt := 1
 	cacheKey := buildOTPKey(channel, target)
-
 	lastOTPMeta, err := s.cache.Get(cacheKey)
 	if err != nil {
 		if !errors.Is(err, cache.ErrKeyNotFound) {
@@ -89,7 +86,7 @@ func (s otpSvc) Send(ctx context.Context, target, channel string) (*OTPStatus, e
 	otp := generateOTP(s.config.Length)
 	if channel == OTPChannelSMS && s.config.TestPhone == target {
 		otp = testOTP
-	} else if channel == OTPChannelEmail && strings.EqualFold(s.config.TestEmail, target) {
+	} else if channel == OTPChannelEmail && s.config.TestEmail != "" && strings.EqualFold(s.config.TestEmail, target) {
 		otp = testOTP
 	} else if err := s.sendOTPByChannel(channel, target, otp); err != nil {
 		return nil, err
@@ -111,8 +108,6 @@ func (s otpSvc) Send(ctx context.Context, target, channel string) (*OTPStatus, e
 }
 
 func (s otpSvc) Verify(ctx context.Context, target, otp, channel string) error {
-	channel = normalizeOTPChannel(channel)
-	target = strings.TrimSpace(target)
 	lastOTPMeta, err := s.cache.Get(buildOTPKey(channel, target))
 	if err != nil {
 		if errors.Is(err, cache.ErrKeyNotFound) {
@@ -138,16 +133,14 @@ func (s otpSvc) Verify(ctx context.Context, target, otp, channel string) error {
 }
 
 func (s otpSvc) sendOTPByChannel(channel, target, otp string) error {
-	if target == "" {
-		return apperrors.NewInvalidParamsError("target", errors.New("target is required"))
-	}
-
+	brand := s.config.brandName()
+	message := otpMessage(otp, brand)
 	switch channel {
 	case OTPChannelSMS:
 		if s.smsProvider == nil {
 			return apperrors.NewServerError(errors.New("sms provider not configured"))
 		}
-		if err := s.smsProvider.SendSMS(target, otp); err != nil {
+		if err := s.smsProvider.SendSMS(target, message); err != nil {
 			return errors.Wrap(err, "unable to send otp")
 		}
 		return nil
@@ -155,42 +148,13 @@ func (s otpSvc) sendOTPByChannel(channel, target, otp string) error {
 		if s.emailProvider == nil {
 			return apperrors.NewServerError(errors.New("email provider not configured"))
 		}
-		if err := s.emailProvider.SendEmail(target, otpEmailSubject, otpMessage(otp)); err != nil {
+		if err := s.emailProvider.SendEmail(target, otpEmailSubject(brand), message); err != nil {
 			return errors.Wrap(err, "unable to send otp")
 		}
 		return nil
 	default:
 		return apperrors.NewInvalidParamsError("channel", fmt.Errorf("unsupported channel: %s", channel))
 	}
-}
-
-func (r SendOTPRequest) resolveOTPInputs() (string, string, error) {
-	target := r.OTPDestination()
-	channel := r.OTPChannel()
-	if target == "" {
-		return "", "", apperrors.NewInvalidParamsError("target", errors.New("phone or target is required"))
-	}
-	switch channel {
-	case OTPChannelSMS:
-		if err := validatePhone(target); err != nil {
-			return "", "", apperrors.NewInvalidParamsError("phone", err)
-		}
-	case OTPChannelEmail:
-		if _, err := mail.ParseAddress(target); err != nil {
-			return "", "", apperrors.NewInvalidParamsError("email", errors.New("invalid email address"))
-		}
-	default:
-		return "", "", apperrors.NewInvalidParamsError("channel", fmt.Errorf("unsupported channel: %s", channel))
-	}
-	return target, channel, nil
-}
-
-func normalizeOTPChannel(channel string) string {
-	c := strings.ToLower(strings.TrimSpace(channel))
-	if c == "" {
-		return OTPChannelSMS
-	}
-	return c
 }
 
 func buildOTPKey(channel, target string) string {
@@ -209,8 +173,12 @@ func generateOTP(length int) string {
 	return string(otp)
 }
 
-func otpMessage(otp string) string {
-	return "Your OTP code is " + otp + ". It expires shortly."
+func otpMessage(otp, organisation string) string {
+	return fmt.Sprintf(otpExpiryHintTemplate, organisation, otp)
+}
+
+func otpEmailSubject(organisation string) string {
+	return fmt.Sprintf(otpSubjectTemplate, organisation)
 }
 
 func validatePhone(phone string) error {
