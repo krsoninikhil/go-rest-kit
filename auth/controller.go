@@ -12,8 +12,8 @@ import (
 // dependencies
 type (
 	OTPSvcI interface {
-		Send(ctx context.Context, phone string) (*OTPStatus, error)
-		Verify(ctx context.Context, phone, otp string) error
+		Send(ctx context.Context, target, channel string) (*OTPStatus, error)
+		Verify(ctx context.Context, target, otp, channel string) error
 	}
 	AuthService interface {
 		UpsertUser(ctx context.Context, u SigupInfo) (*Token, error)
@@ -58,7 +58,11 @@ func (c *Controller) WithOAuthProviders(providers ...OAuthProvider) *Controller 
 
 func (a *Controller) SendOTP(c *gin.Context, r SendOTPRequest) (*SendOTPResponse, error) {
 	log.Printf("auth: sending otp request=%+v", r)
-	res, err := a.otpSvc.Send(c, r.Phone)
+	target, channel, err := r.resolveOTPInputs()
+	if err != nil {
+		return nil, err
+	}
+	res, err := a.otpSvc.Send(c, target, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +75,11 @@ func (a *Controller) SendOTP(c *gin.Context, r SendOTPRequest) (*SendOTPResponse
 }
 
 func (a *Controller) VerifyOTP(c *gin.Context, r VerifyOTPRequest) (*VerifyOTPResponse, error) {
-	err := a.otpSvc.Verify(c, r.Phone, r.OTP)
+	target, channel, err := r.SendOTPRequest.resolveOTPInputs()
+	if err != nil {
+		return nil, err
+	}
+	err = a.otpSvc.Verify(c, target, r.OTP, channel)
 	if err != nil {
 		return nil, err
 	}

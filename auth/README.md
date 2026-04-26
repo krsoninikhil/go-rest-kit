@@ -5,6 +5,7 @@ The auth package provides authentication mechanisms for your REST API, including
 ## Features
 
 - **OTP Authentication**: Phone number-based authentication with SMS OTP delivery
+- **Channel-aware OTP**: Optional `channel` + `target` support with default `sms` compatibility
 - **OAuth Authentication**: Generic OAuth provider support (Google, Twitter, LinkedIn, etc.)
   - Extensible design - easy to add new providers
   - Single unified endpoint for all OAuth providers
@@ -27,6 +28,17 @@ authController := auth.NewController(authSvc, otpSvc, cache)
 r.POST("/auth/otp/send", request.BindCreate(authController.SendOTP))
 r.POST("/auth/otp/verify", request.BindCreate(authController.VerifyOTP))
 ```
+
+`/auth/otp/send` and `/auth/otp/verify` remain backward compatible with `phone`. You can also pass:
+
+```json
+{
+  "target": "reader@example.com",
+  "channel": "email"
+}
+```
+
+to reuse OTP logic for email (when an email provider is attached to `otpSvc`).
 
 **Flow:**
 1. Frontend sends phone number to `/auth/otp/send`

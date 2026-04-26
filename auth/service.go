@@ -44,7 +44,18 @@ func NewService(config Config, userDao UserDao) *Service {
 }
 
 func (s *Service) UpsertUser(ctx context.Context, u SigupInfo) (*Token, error) {
-	userID, err := s.userDao.GetByPhone(ctx, u.Phone)
+	var (
+		userID int
+		err    error
+	)
+	switch {
+	case u.Email != "":
+		userID, err = s.userDao.GetByEmail(ctx, u.Email)
+	case u.Phone != "":
+		userID, err = s.userDao.GetByPhone(ctx, u.Phone)
+	default:
+		return nil, apperrors.NewInvalidParamsError("target", fmt.Errorf("phone or email is required"))
+	}
 	if err != nil {
 		if _, ok := err.(apperrors.NotFoundError); ok {
 			userID, err = s.userDao.Create(ctx, u)

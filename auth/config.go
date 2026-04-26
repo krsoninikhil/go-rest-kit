@@ -33,6 +33,7 @@ type otpConfig struct {
 	RetryAfterSeconds int `validate:"required"`
 	Length            int `validate:"required"`
 	TestPhone         string
+	TestEmail         string
 }
 
 func (c otpConfig) validity() time.Duration {

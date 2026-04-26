@@ -1,5 +1,7 @@
 package auth
 
+import "strings"
+
 const (
 	CtxKeyTokenClaims string = "tokenClaims"
 	CtxKeyUserID      string = "userID"
@@ -13,7 +15,10 @@ const (
 // schema
 type (
 	SendOTPRequest struct {
-		Phone    string `json:"phone" binding:"required"`
+		// Deprecated: use target with channel="sms".
+		Phone    string `json:"phone"`
+		Target   string `json:"target"`
+		Channel  string `json:"channel"`
 		DialCode string `json:"dial_code"`
 		Country  string `json:"country"`
 		Locale   string `json:"locale"`
@@ -83,6 +88,7 @@ type (
 	}
 	SigupInfo struct {
 		Phone    string
+		Email    string
 		DialCode string
 		Country  string
 		Locale   string
@@ -105,10 +111,37 @@ type (
 )
 
 func (v *VerifyOTPRequest) toSigupInfo() SigupInfo {
+	target := v.OTPDestination()
+	channel := v.OTPChannel()
+	phone := ""
+	email := ""
+	if channel == OTPChannelSMS {
+		phone = target
+	}
+	if channel == OTPChannelEmail {
+		email = target
+	}
 	return SigupInfo{
-		Phone:    v.Phone,
+		Phone:    phone,
+		Email:    email,
 		DialCode: v.DialCode,
 		Country:  v.Country,
 		Locale:   v.Locale,
 	}
+}
+
+func (r SendOTPRequest) OTPDestination() string {
+	target := strings.TrimSpace(r.Target)
+	if target != "" {
+		return target
+	}
+	return strings.TrimSpace(r.Phone)
+}
+
+func (r SendOTPRequest) OTPChannel() string {
+	channel := strings.TrimSpace(strings.ToLower(r.Channel))
+	if channel == "" {
+		return OTPChannelSMS
+	}
+	return channel
 }
