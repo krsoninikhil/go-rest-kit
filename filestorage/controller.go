@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"regexp"
@@ -22,7 +23,8 @@ import (
 // If AllowedPrefixes is non-nil, Upload will reject any prefix not in the list.
 // Prefixes like "public/profiles" are for public objects; others (e.g. "frameworks") are private.
 type ControllerOpts struct {
-	AllowedPrefixes []string
+	AllowedPrefixes  []string
+	MaxBytesByPrefix map[string]int64
 }
 
 var errFileHeaderRequired = errors.New("file header is required")
@@ -40,8 +42,9 @@ type SignedURLResponse struct {
 
 // Controller exposes Gin handlers for upload and signed URL using AWS S3.
 type Controller struct {
-	s3              *aws.S3
-	allowedPrefixes map[string]struct{} // nil = no validation
+	s3               *aws.S3
+	allowedPrefixes  map[string]struct{} // nil = no validation
+	maxBytesByPrefix map[string]int64
 }
 
 // NewController creates a filestorage controller from AWS config.
@@ -56,6 +59,14 @@ func NewController(cfg aws.Config, opts *ControllerOpts) (*Controller, error) {
 		c.allowedPrefixes = make(map[string]struct{})
 		for _, p := range opts.AllowedPrefixes {
 			c.allowedPrefixes[p] = struct{}{}
+		}
+	}
+	if opts != nil && len(opts.MaxBytesByPrefix) > 0 {
+		c.maxBytesByPrefix = make(map[string]int64, len(opts.MaxBytesByPrefix))
+		for prefix, maxBytes := range opts.MaxBytesByPrefix {
+			if maxBytes > 0 {
+				c.maxBytesByPrefix[prefix] = maxBytes
+			}
 		}
 	}
 	return c, nil
@@ -96,10 +107,30 @@ func (c *Controller) Upload(ctx *gin.Context) {
 	}
 
 	key := buildKey(header.Filename, prefix, userID)
-	body, err := io.ReadAll(file)
-	if err != nil {
-		request.Respond(ctx, nil, apperrors.NewServerError(err))
+	maxBytes, hasLimit := c.maxBytesByPrefix[prefix]
+	if hasLimit && isOverMaxBytes(maxBytes, header.Size, 0) {
+		request.Respond(ctx, nil, apperrors.NewInvalidParamsError("filestorage", fileTooLargeErr(prefix, maxBytes)))
 		return
+	}
+
+	var body []byte
+	if hasLimit && maxBytes > 0 {
+		limited := io.LimitReader(file, maxBytes+1)
+		body, err = io.ReadAll(limited)
+		if err != nil {
+			request.Respond(ctx, nil, apperrors.NewServerError(err))
+			return
+		}
+		if isOverMaxBytes(maxBytes, 0, int64(len(body))) {
+			request.Respond(ctx, nil, apperrors.NewInvalidParamsError("filestorage", fileTooLargeErr(prefix, maxBytes)))
+			return
+		}
+	} else {
+		body, err = io.ReadAll(file)
+		if err != nil {
+			request.Respond(ctx, nil, apperrors.NewServerError(err))
+			return
+		}
 	}
 	contentType := header.Header.Get("Content-Type")
 	if contentType == "" {
@@ -169,4 +200,24 @@ var unsafeFilename = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 func sanitizeFilename(name string) string {
 	base := filepath.Base(name)
 	return unsafeFilename.ReplaceAllString(base, "_")
+}
+
+func fileTooLargeErr(prefix string, maxBytes int64) error {
+	if prefix == "" {
+		return fmt.Errorf("file too large: max %d bytes", maxBytes)
+	}
+	return fmt.Errorf("file too large for prefix %q: max %d bytes", prefix, maxBytes)
+}
+
+func isOverMaxBytes(maxBytes int64, headerSize int64, actualSize int64) bool {
+	if maxBytes <= 0 {
+		return false
+	}
+	if headerSize > 0 && headerSize > maxBytes {
+		return true
+	}
+	if actualSize > 0 && actualSize > maxBytes {
+		return true
+	}
+	return false
 }
