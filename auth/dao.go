@@ -14,12 +14,21 @@ type UserModel interface {
 	SetPhone(string) UserModel
 	SetSignupInfo(SigupInfo) UserModel
 	SetOAuthInfo(OAuthUserInfo) UserModel
+	PK() int
+	ResourceName() string
+}
+
+// UserWithPassword is an optional capability required only for password auth flows.
+// Models that don't support password auth don't need to implement it.
+type UserWithPassword interface {
 	SetEmail(string) UserModel
 	SetName(string) UserModel
 	SetPasswordHash(string) UserModel
 	GetPasswordHash() string
-	PK() int
-	ResourceName() string
+}
+
+type UserWithUsername interface {
+	SetUsername(string) UserModel
 }
 
 type userDao[U UserModel] struct {
@@ -118,19 +127,41 @@ func (d *userDao[U]) GetByEmailWithPassword(ctx context.Context, email string) (
 		}
 		return 0, "", apperrors.NewServerError(err)
 	}
-	return user.PK(), user.GetPasswordHash(), nil
+	passwordModel, ok := any(user).(UserWithPassword)
+	if !ok {
+		return 0, "", apperrors.NewServerError(errors.New("user model does not support password authentication"))
+	}
+	return user.PK(), passwordModel.GetPasswordHash(), nil
 }
 
-func (d *userDao[U]) CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, locale string) (int, error) {
+func (d *userDao[U]) CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, username, locale string) (int, error) {
 	var user U
-	user = user.SetEmail(email).(U)
-	user = user.SetName(name).(U)
-	user = user.SetPasswordHash(passwordHash).(U)
+	passwordModel, ok := any(user).(UserWithPassword)
+	if !ok {
+		return 0, apperrors.NewServerError(errors.New("user model does not support password authentication"))
+	}
+	user = passwordModel.SetEmail(email).(U)
+	if name != "" {
+		user = passwordModel.SetName(name).(U)
+	}
+	user = passwordModel.SetPasswordHash(passwordHash).(U)
 	user = user.SetSignupInfo(SigupInfo{Email: email, Locale: locale}).(U)
+
+	usernameModel, ok := any(user).(UserWithUsername)
+	if ok && username != "" {
+		user = usernameModel.SetUsername(username).(U)
+	}
+
 	if err := d.PGDB.DB(ctx).Create(&user).Error; err != nil {
 		return 0, err
 	}
 	return user.PK(), nil
+}
+
+func (d *userDao[U]) SupportsUsername() bool {
+	var user U
+	_, ok := any(user).(UserWithUsername)
+	return ok
 }
 
 func (d *userDao[U]) GetByUsername(ctx context.Context, username string) (int, error) {

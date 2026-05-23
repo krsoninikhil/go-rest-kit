@@ -2,9 +2,12 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/mail"
+	"regexp"
 	"strings"
 
 	"github.com/golang-jwt/jwt"
@@ -12,14 +15,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var usernameSanitizer = regexp.MustCompile(`[^a-z0-9]+`)
+
 type UserDao interface {
 	Create(ctx context.Context, u SigupInfo) (userID int, err error)
 	GetByPhone(ctx context.Context, phone string) (userID int, err error)
 	GetByEmail(ctx context.Context, email string) (userID int, err error)
 	GetByEmailWithPassword(ctx context.Context, email string) (userID int, passwordHash string, err error)
-	CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, locale string) (userID int, err error)
+	CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, username, locale string) (userID int, err error)
 	GetByUsername(ctx context.Context, username string) (userID int, err error)
 	UpsertByEmail(ctx context.Context, oauthInfo OAuthUserInfo) (userID int, err error)
+	SupportsUsername() bool
 }
 
 type TokenSvc interface {
@@ -106,7 +112,8 @@ func (s *Service) PasswordSignupOrLogin(ctx context.Context, email, password, lo
 				return nil, apperrors.NewServerError(hashErr)
 			}
 			name := deriveNameFromEmail(normalizedEmail)
-			userID, err = s.userDao.CreateWithEmailAndPassword(ctx, normalizedEmail, name, hashedPassword, locale)
+			username := s.deriveAvailableUsername(ctx, normalizedEmail)
+			userID, err = s.userDao.CreateWithEmailAndPassword(ctx, normalizedEmail, name, hashedPassword, username, locale)
 			if err != nil {
 				return nil, apperrors.NewServerError(fmt.Errorf("error creating password user: %v", err))
 			}
@@ -217,4 +224,80 @@ func deriveNameFromEmail(email string) string {
 		return "User"
 	}
 	return strings.Join(segments, " ")
+}
+
+func (s *Service) deriveAvailableUsername(ctx context.Context, email string) string {
+	if !s.userDao.SupportsUsername() {
+		return ""
+	}
+
+	base := deriveUsernameBase(email)
+	if isUsernameAvailable(ctx, s.userDao, base) {
+		return base
+	}
+
+	for attempt := 0; attempt < 5; attempt++ {
+		suffix, err := randomIntBetween(1, 1000)
+		if err != nil {
+			continue
+		}
+		candidate := withNumericSuffix(base, suffix, 50)
+		if isUsernameAvailable(ctx, s.userDao, candidate) {
+			return candidate
+		}
+	}
+
+	// Best effort only: skip setting username when no available candidate is found.
+	return ""
+}
+
+func deriveUsernameBase(email string) string {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(email)), "@")
+	local := ""
+	if len(parts) > 0 {
+		local = parts[0]
+	}
+	if local == "" {
+		local = "user"
+	}
+	base := usernameSanitizer.ReplaceAllString(local, "")
+	if base == "" {
+		base = "user"
+	}
+	if len(base) > 50 {
+		base = base[:50]
+	}
+	return base
+}
+
+func withNumericSuffix(base string, suffix int, maxLen int) string {
+	suffixText := fmt.Sprintf("%d", suffix)
+	if len(base)+len(suffixText) <= maxLen {
+		return base + suffixText
+	}
+	if maxLen <= len(suffixText) {
+		return suffixText[:maxLen]
+	}
+	return base[:maxLen-len(suffixText)] + suffixText
+}
+
+func randomIntBetween(min, max int) (int, error) {
+	if max < min {
+		return 0, errors.New("invalid random bounds")
+	}
+	span := max - min + 1
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(span)))
+	if err != nil {
+		return 0, err
+	}
+	return min + int(n.Int64()), nil
+}
+
+func isUsernameAvailable(ctx context.Context, dao UserDao, username string) bool {
+	_, err := dao.GetByUsername(ctx, username)
+	if err != nil {
+		_, notFound := err.(apperrors.NotFoundError)
+		return notFound
+	}
+	return false
 }
