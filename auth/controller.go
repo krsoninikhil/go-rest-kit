@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/krsoninikhil/go-rest-kit/apperrors"
@@ -19,6 +20,8 @@ type (
 		UpsertUser(ctx context.Context, u SigupInfo) (*Token, error)
 		UpsertOAuthUser(ctx context.Context, oauthInfo OAuthUserInfo) (*Token, error)
 		PasswordSignupOrLogin(ctx context.Context, email, password, locale string) (*Token, error)
+		RequestPasswordReset(ctx context.Context, email string) error
+		ConfirmPasswordReset(ctx context.Context, token, newPassword string) error
 		RefreshToken(ctx context.Context, refreshToken string) (*Token, error)
 		CheckUsernameAvailable(ctx context.Context, username string, excludeUserID int) (bool, error)
 	}
@@ -152,6 +155,27 @@ func (a *Controller) PasswordAuth(c *gin.Context, r PasswordAuthRequest) (*Passw
 		ExpiresIn:        res.ExpiresIn,
 		RefreshExpiresIn: res.RefreshExpiresIn,
 	}, nil
+}
+
+func (a *Controller) RequestPasswordReset(c *gin.Context, r PasswordResetRequest) (*GenericMessageResponse, error) {
+	email, err := r.NormalizedEmail()
+	if err != nil {
+		return nil, err
+	}
+	if err := a.authSvc.RequestPasswordReset(c.Request.Context(), email); err != nil {
+		return nil, err
+	}
+	return &GenericMessageResponse{Message: "If an account exists for this email, a reset link has been sent."}, nil
+}
+
+func (a *Controller) ConfirmPasswordReset(c *gin.Context, r PasswordResetConfirmRequest) (*GenericMessageResponse, error) {
+	if err := r.Validate(); err != nil {
+		return nil, err
+	}
+	if err := a.authSvc.ConfirmPasswordReset(c.Request.Context(), strings.TrimSpace(r.Token), strings.TrimSpace(r.NewPassword)); err != nil {
+		return nil, err
+	}
+	return &GenericMessageResponse{Message: "Password reset successful."}, nil
 }
 
 func (a *Controller) RefreshToken(c *gin.Context, r RefreshTokenRequest) (*VerifyOTPResponse, error) {

@@ -59,8 +59,7 @@ func TestOTPSvc_SMS_DefaultChannelCompatibility(t *testing.T) {
 		MaxAttempts:       5,
 		RetryAfterSeconds: 30,
 		Length:            6,
-		Organisation:      "FaithLabs",
-	}, sms, cache.NewInMemory())
+	}, sms, cache.NewInMemory()).WithOrganisation("FaithLabs")
 
 	res, err := svc.Send(context.Background(), "+12345678901", OTPChannelSMS)
 	if err != nil {
@@ -92,8 +91,7 @@ func TestOTPSvc_EmailChannel(t *testing.T) {
 		MaxAttempts:       5,
 		RetryAfterSeconds: 30,
 		Length:            6,
-		Organisation:      "FaithLabs",
-	}, sms, cache.NewInMemory()).WithEmailProvider(email)
+	}, sms, cache.NewInMemory()).WithOrganisation("FaithLabs").WithEmailProvider(email)
 
 	res, err := svc.Send(context.Background(), "reader@example.com", OTPChannelEmail)
 	if err != nil {
@@ -130,8 +128,7 @@ func TestOTPSvc_ChannelDefaultsToSMS(t *testing.T) {
 		MaxAttempts:       5,
 		RetryAfterSeconds: 30,
 		Length:            6,
-		Organisation:      "FaithLabs",
-	}, sms, cache.NewInMemory())
+	}, sms, cache.NewInMemory()).WithOrganisation("FaithLabs")
 
 	_, err := svc.Send(context.Background(), "+12345678901", "")
 	if err != nil {
@@ -153,9 +150,8 @@ func TestOTPSvc_TestEmailSkipsSending(t *testing.T) {
 		MaxAttempts:       5,
 		RetryAfterSeconds: 30,
 		Length:            6,
-		Organisation:      "FaithLabs",
 		TestEmail:         "engineering@faithlabs.io",
-	}, sms, cache.NewInMemory()).WithEmailProvider(email)
+	}, sms, cache.NewInMemory()).WithOrganisation("FaithLabs").WithEmailProvider(email)
 
 	_, err := svc.Send(context.Background(), "engineering@faithlabs.io", OTPChannelEmail)
 	if err != nil {

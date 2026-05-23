@@ -14,6 +14,7 @@ const (
 	CtxKeyUserID      string = "userID"
 	audienceLogin     string = "login"
 	audienceRefresh   string = "refresh"
+	audienceReset     string = "password_reset"
 
 	// otp for config.TestPhone to allow app reviews
 	testOTP = "000000"
@@ -82,6 +83,16 @@ type (
 		RefreshToken     string `json:"refresh_token"`
 		ExpiresIn        int64  `json:"expires_in"`
 		RefreshExpiresIn int64  `json:"refresh_expires_in"`
+	}
+	PasswordResetRequest struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	PasswordResetConfirmRequest struct {
+		Token       string `json:"token" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=8,max=128"`
+	}
+	GenericMessageResponse struct {
+		Message string `json:"message"`
 	}
 
 	// UsernameCheckParam is the path param for GET /username/check/:username (protected)
@@ -204,6 +215,27 @@ func (r PasswordAuthRequest) ValidatePassword() error {
 	}
 	if len(pass) < 8 {
 		return apperrors.NewInvalidParamsError("password", errors.New("password must be at least 8 characters"))
+	}
+	return nil
+}
+
+func (r PasswordResetRequest) NormalizedEmail() (string, error) {
+	email := strings.TrimSpace(strings.ToLower(r.Email))
+	if email == "" {
+		return "", apperrors.NewInvalidParamsError("email", errors.New("email is required"))
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return "", apperrors.NewInvalidParamsError("email", errors.New("invalid email address"))
+	}
+	return email, nil
+}
+
+func (r PasswordResetConfirmRequest) Validate() error {
+	if strings.TrimSpace(r.Token) == "" {
+		return apperrors.NewInvalidParamsError("token", errors.New("token is required"))
+	}
+	if len(strings.TrimSpace(r.NewPassword)) < 8 {
+		return apperrors.NewInvalidParamsError("new_password", errors.New("password must be at least 8 characters"))
 	}
 	return nil
 }

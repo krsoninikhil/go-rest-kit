@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"strconv"
 	"math/big"
 	"net/mail"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -26,6 +28,12 @@ type UserDao interface {
 	GetByUsername(ctx context.Context, username string) (userID int, err error)
 	UpsertByEmail(ctx context.Context, oauthInfo OAuthUserInfo) (userID int, err error)
 	SupportsUsername() bool
+	SupportsPassword() bool
+	SetPasswordHashByUserID(ctx context.Context, userID int, passwordHash string) error
+}
+
+type resetEmailSender interface {
+	SendEmail(to, subject, message string) error
 }
 
 type TokenSvc interface {
@@ -37,9 +45,11 @@ type TokenSvc interface {
 }
 
 type Service struct {
-	config   Config
-	userDao  UserDao
-	tokenSvc TokenSvc
+	config            Config
+	userDao           UserDao
+	tokenSvc          TokenSvc
+	resetEmailSender  resetEmailSender
+	passwordResetBase string
 }
 
 func NewService(config Config, userDao UserDao) *Service {
@@ -53,6 +63,12 @@ func NewService(config Config, userDao UserDao) *Service {
 		userDao:  userDao,
 		tokenSvc: tokenSvc,
 	}
+}
+
+func (s *Service) WithPasswordReset(emailSender resetEmailSender, frontendBaseURL string) *Service {
+	s.resetEmailSender = emailSender
+	s.passwordResetBase = strings.TrimRight(strings.TrimSpace(frontendBaseURL), "/")
+	return s
 }
 
 func (s *Service) UpsertUser(ctx context.Context, u SigupInfo) (*Token, error) {
@@ -144,6 +160,60 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 	}
 
 	return s.generateToken(subject)
+}
+
+func (s *Service) RequestPasswordReset(ctx context.Context, email string) error {
+	if !s.userDao.SupportsPassword() {
+		return nil
+	}
+	if s.resetEmailSender == nil || s.passwordResetBase == "" {
+		return apperrors.NewServerError(errors.New("password reset is not configured"))
+	}
+
+	userID, passwordHash, err := s.userDao.GetByEmailWithPassword(ctx, email)
+	if err != nil {
+		if _, ok := err.(apperrors.NotFoundError); ok {
+			return nil
+		}
+		return apperrors.NewServerError(fmt.Errorf("error looking up reset email: %v", err))
+	}
+	if strings.TrimSpace(passwordHash) == "" {
+		// OAuth-only users: keep generic success, no reset email.
+		return nil
+	}
+
+	token, err := s.generatePasswordResetToken(userID)
+	if err != nil {
+		return apperrors.NewServerError(err)
+	}
+	resetURL := fmt.Sprintf("%s/login?mode=reset&token=%s", s.passwordResetBase, url.QueryEscape(token))
+	brand := s.config.brandName()
+	message := fmt.Sprintf("Use this link to reset your %s password: %s\n\nThis link expires in %d minutes.", brand, resetURL, int(s.config.passwordResetTTL().Minutes()))
+	if err := s.resetEmailSender.SendEmail(email, fmt.Sprintf("Reset your %s password", brand), message); err != nil {
+		return apperrors.NewServerError(fmt.Errorf("error sending password reset email: %v", err))
+	}
+	return nil
+}
+
+func (s *Service) ConfirmPasswordReset(ctx context.Context, token, newPassword string) error {
+	if !s.userDao.SupportsPassword() {
+		return apperrors.NewServerError(errors.New("password reset is not supported"))
+	}
+	if len(strings.TrimSpace(newPassword)) < 8 {
+		return apperrors.NewInvalidParamsError("new_password", errors.New("password must be at least 8 characters"))
+	}
+	userID, err := s.validatePasswordResetToken(strings.TrimSpace(token))
+	if err != nil {
+		return err
+	}
+	passwordHash, err := hashPassword(strings.TrimSpace(newPassword))
+	if err != nil {
+		return apperrors.NewServerError(err)
+	}
+	if err := s.userDao.SetPasswordHashByUserID(ctx, userID, passwordHash); err != nil {
+		return apperrors.NewServerError(fmt.Errorf("error updating password: %v", err))
+	}
+	return nil
 }
 
 // CheckUsernameAvailable returns true if the username is available for the given user (not taken, or taken only by excludeUserID).
@@ -300,4 +370,33 @@ func isUsernameAvailable(ctx context.Context, dao UserDao, username string) bool
 		return notFound
 	}
 	return false
+}
+
+func (s *Service) generatePasswordResetToken(userID int) (string, error) {
+	claims := jwt.StandardClaims{
+		Subject:   strconv.Itoa(userID),
+		Audience:  audienceReset,
+		IssuedAt:  jwt.TimeFunc().Unix(),
+		ExpiresAt: jwt.TimeFunc().Add(s.config.passwordResetTTL()).Unix(),
+	}
+	return generateJWTToken(claims, s.config.SecretKey)
+}
+
+func (s *Service) validatePasswordResetToken(token string) (int, error) {
+	parsedToken, err := s.tokenSvc.VerifyToken(strings.TrimSpace(token))
+	if err != nil {
+		return 0, apperrors.NewInvalidParamsError("token", errors.New("invalid or expired token"))
+	}
+	claims, ok := parsedToken.Claims.(*jwt.StandardClaims)
+	if !ok {
+		return 0, apperrors.NewInvalidParamsError("token", errors.New("invalid token claims"))
+	}
+	if claims.Audience != audienceReset {
+		return 0, apperrors.NewInvalidParamsError("token", errors.New("invalid token audience"))
+	}
+	userID, convErr := strconv.Atoi(claims.Subject)
+	if convErr != nil || userID <= 0 {
+		return 0, apperrors.NewInvalidParamsError("token", errors.New("invalid token subject"))
+	}
+	return userID, nil
 }

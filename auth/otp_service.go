@@ -41,6 +41,7 @@ type otpMetaData struct {
 
 type otpSvc struct {
 	config        otpConfig
+	organisation  string
 	cache         cacheClient
 	smsProvider   smsProvider
 	emailProvider emailProvider
@@ -59,7 +60,17 @@ func (s otpSvc) WithEmailProvider(provider emailProvider) otpSvc {
 	return s
 }
 
+func (s otpSvc) WithOrganisation(organisation string) otpSvc {
+	s.organisation = strings.TrimSpace(organisation)
+	return s
+}
+
 func (s otpSvc) Send(ctx context.Context, target, channel string) (*OTPStatus, error) {
+	channel = strings.TrimSpace(strings.ToLower(channel))
+	if channel == "" {
+		channel = OTPChannelSMS
+	}
+
 	attempt := 1
 	cacheKey := buildOTPKey(channel, target)
 	lastOTPMeta, err := s.cache.Get(cacheKey)
@@ -133,7 +144,10 @@ func (s otpSvc) Verify(ctx context.Context, target, otp, channel string) error {
 }
 
 func (s otpSvc) sendOTPByChannel(channel, target, otp string) error {
-	brand := s.config.brandName()
+	brand := strings.TrimSpace(s.organisation)
+	if brand == "" {
+		brand = "App"
+	}
 	message := otpMessage(otp, brand)
 	switch channel {
 	case OTPChannelSMS:

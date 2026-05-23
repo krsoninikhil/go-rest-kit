@@ -164,6 +164,25 @@ func (d *userDao[U]) SupportsUsername() bool {
 	return ok
 }
 
+func (d *userDao[U]) SupportsPassword() bool {
+	var user U
+	_, ok := any(user).(UserWithPassword)
+	return ok
+}
+
+func (d *userDao[U]) SetPasswordHashByUserID(ctx context.Context, userID int, passwordHash string) error {
+	var user U
+	passwordModel, ok := any(user).(UserWithPassword)
+	if !ok {
+		return apperrors.NewServerError(errors.New("user model does not support password authentication"))
+	}
+	updateUser := passwordModel.SetPasswordHash(passwordHash).(U)
+	if err := d.PGDB.DB(ctx).Model(&user).Where("id = ?", userID).Updates(&updateUser).Error; err != nil {
+		return apperrors.NewServerError(err)
+	}
+	return nil
+}
+
 func (d *userDao[U]) GetByUsername(ctx context.Context, username string) (int, error) {
 	var user U
 	err := d.PGDB.DB(ctx).Where("username = ?", username).First(&user).Error
