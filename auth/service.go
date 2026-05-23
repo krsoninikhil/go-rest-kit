@@ -2,16 +2,22 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/mail"
+	"strings"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/krsoninikhil/go-rest-kit/apperrors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserDao interface {
 	Create(ctx context.Context, u SigupInfo) (userID int, err error)
 	GetByPhone(ctx context.Context, phone string) (userID int, err error)
 	GetByEmail(ctx context.Context, email string) (userID int, err error)
+	GetByEmailWithPassword(ctx context.Context, email string) (userID int, passwordHash string, err error)
+	CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, locale string) (userID int, err error)
 	GetByUsername(ctx context.Context, username string) (userID int, err error)
 	UpsertByEmail(ctx context.Context, oauthInfo OAuthUserInfo) (userID int, err error)
 }
@@ -71,9 +77,49 @@ func (s *Service) UpsertUser(ctx context.Context, u SigupInfo) (*Token, error) {
 }
 
 func (s *Service) UpsertOAuthUser(ctx context.Context, oauthInfo OAuthUserInfo) (*Token, error) {
+	oauthInfo.Email = strings.TrimSpace(strings.ToLower(oauthInfo.Email))
 	userID, err := s.userDao.UpsertByEmail(ctx, oauthInfo)
 	if err != nil {
 		return nil, apperrors.NewServerError(fmt.Errorf("error upserting oauth user: %v", err))
+	}
+
+	return s.generateToken(fmt.Sprintf("%d", userID))
+}
+
+func (s *Service) PasswordSignupOrLogin(ctx context.Context, email, password, locale string) (*Token, error) {
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	if normalizedEmail == "" {
+		return nil, apperrors.NewInvalidParamsError("email", errors.New("email is required"))
+	}
+	if _, err := mail.ParseAddress(normalizedEmail); err != nil {
+		return nil, apperrors.NewInvalidParamsError("email", errors.New("invalid email address"))
+	}
+	if len(password) < 8 {
+		return nil, apperrors.NewInvalidParamsError("password", errors.New("password must be at least 8 characters"))
+	}
+
+	userID, passwordHash, err := s.userDao.GetByEmailWithPassword(ctx, normalizedEmail)
+	if err != nil {
+		if _, ok := err.(apperrors.NotFoundError); ok {
+			hashedPassword, hashErr := hashPassword(password)
+			if hashErr != nil {
+				return nil, apperrors.NewServerError(hashErr)
+			}
+			name := deriveNameFromEmail(normalizedEmail)
+			userID, err = s.userDao.CreateWithEmailAndPassword(ctx, normalizedEmail, name, hashedPassword, locale)
+			if err != nil {
+				return nil, apperrors.NewServerError(fmt.Errorf("error creating password user: %v", err))
+			}
+			return s.generateToken(fmt.Sprintf("%d", userID))
+		}
+		return nil, apperrors.NewServerError(fmt.Errorf("error getting user by email: %v", err))
+	}
+
+	if strings.TrimSpace(passwordHash) == "" {
+		return nil, apperrors.NewInvalidParamsError("password", errors.New("password is not set for this account; use Google sign-in or reset password"))
+	}
+	if verifyErr := verifyPassword(passwordHash, password); verifyErr != nil {
+		return nil, apperrors.NewPermissionError("credentials")
 	}
 
 	return s.generateToken(fmt.Sprintf("%d", userID))
@@ -136,4 +182,39 @@ func generateJWTToken(claims jwt.Claims, secretKey string) (string, error) {
 		return "", fmt.Errorf("unable to generate jwt token: %v", err)
 	}
 	return tokenStr, nil
+}
+
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+func verifyPassword(passwordHash, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
+}
+
+func deriveNameFromEmail(email string) string {
+	parts := strings.Split(email, "@")
+	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
+		return "User"
+	}
+	localPart := strings.TrimSpace(parts[0])
+	localPart = strings.ReplaceAll(localPart, ".", " ")
+	localPart = strings.ReplaceAll(localPart, "_", " ")
+	localPart = strings.ReplaceAll(localPart, "-", " ")
+	segments := strings.Fields(localPart)
+	for i := range segments {
+		segment := segments[i]
+		if segment == "" {
+			continue
+		}
+		segments[i] = strings.ToUpper(segment[:1]) + strings.ToLower(segment[1:])
+	}
+	if len(segments) == 0 {
+		return "User"
+	}
+	return strings.Join(segments, " ")
 }

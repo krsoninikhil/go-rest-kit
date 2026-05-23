@@ -18,6 +18,7 @@ type (
 	AuthService interface {
 		UpsertUser(ctx context.Context, u SigupInfo) (*Token, error)
 		UpsertOAuthUser(ctx context.Context, oauthInfo OAuthUserInfo) (*Token, error)
+		PasswordSignupOrLogin(ctx context.Context, email, password, locale string) (*Token, error)
 		RefreshToken(ctx context.Context, refreshToken string) (*Token, error)
 		CheckUsernameAvailable(ctx context.Context, username string, excludeUserID int) (bool, error)
 	}
@@ -124,6 +125,28 @@ func (a *Controller) OAuthAuth(c *gin.Context, r OAuthAuthRequest) (*OAuthAuthRe
 	}
 
 	return &OAuthAuthResponse{
+		AccessToken:      res.AccessToken,
+		RefreshToken:     res.RefreshToken,
+		ExpiresIn:        res.ExpiresIn,
+		RefreshExpiresIn: res.RefreshExpiresIn,
+	}, nil
+}
+
+func (a *Controller) PasswordAuth(c *gin.Context, r PasswordAuthRequest) (*PasswordAuthResponse, error) {
+	email, err := r.NormalizedEmail()
+	if err != nil {
+		return nil, err
+	}
+	if err := r.ValidatePassword(); err != nil {
+		return nil, err
+	}
+
+	res, err := a.authSvc.PasswordSignupOrLogin(c, email, r.Password, r.Locale)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PasswordAuthResponse{
 		AccessToken:      res.AccessToken,
 		RefreshToken:     res.RefreshToken,
 		ExpiresIn:        res.ExpiresIn,

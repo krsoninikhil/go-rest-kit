@@ -72,6 +72,18 @@ type (
 		RefreshExpiresIn int64  `json:"refresh_expires_in"`
 	}
 
+	PasswordAuthRequest struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required,min=8,max=128"`
+		Locale   string `json:"locale"`
+	}
+	PasswordAuthResponse struct {
+		AccessToken      string `json:"access_token"`
+		RefreshToken     string `json:"refresh_token"`
+		ExpiresIn        int64  `json:"expires_in"`
+		RefreshExpiresIn int64  `json:"refresh_expires_in"`
+	}
+
 	// UsernameCheckParam is the path param for GET /username/check/:username (protected)
 	UsernameCheckParam struct {
 		Username string `uri:"username" binding:"required,min=3,max=50,alphanum"`
@@ -172,4 +184,26 @@ func (r SendOTPRequest) resolveOTPInputs() (string, string, error) {
 		return "", "", apperrors.NewInvalidParamsError("channel", fmt.Errorf("unsupported channel: %s", channel))
 	}
 	return target, channel, nil
+}
+
+func (r PasswordAuthRequest) NormalizedEmail() (string, error) {
+	email := strings.TrimSpace(strings.ToLower(r.Email))
+	if email == "" {
+		return "", apperrors.NewInvalidParamsError("email", errors.New("email is required"))
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return "", apperrors.NewInvalidParamsError("email", errors.New("invalid email address"))
+	}
+	return email, nil
+}
+
+func (r PasswordAuthRequest) ValidatePassword() error {
+	pass := strings.TrimSpace(r.Password)
+	if pass == "" {
+		return apperrors.NewInvalidParamsError("password", errors.New("password is required"))
+	}
+	if len(pass) < 8 {
+		return apperrors.NewInvalidParamsError("password", errors.New("password must be at least 8 characters"))
+	}
+	return nil
 }
