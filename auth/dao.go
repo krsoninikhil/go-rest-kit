@@ -134,6 +134,28 @@ func (d *userDao[U]) GetByEmailWithPassword(ctx context.Context, email string) (
 	return user.PK(), passwordModel.GetPasswordHash(), nil
 }
 
+func (d *userDao[U]) GetByID(ctx context.Context, userID int) (string, string, error) {
+	var user U
+	err := d.PGDB.DB(ctx).Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", "", apperrors.NewNotFoundError(user.ResourceName())
+		}
+		return "", "", apperrors.NewServerError(err)
+	}
+	passwordModel, ok := any(user).(UserWithPassword)
+	if !ok {
+		return "", "", apperrors.NewServerError(errors.New("user model does not support password authentication"))
+	}
+	var lookup struct {
+		Email string `gorm:"column:email"`
+	}
+	if err := d.PGDB.DB(ctx).Model(&user).Select("email").Where("id = ?", userID).Take(&lookup).Error; err != nil {
+		return "", "", apperrors.NewServerError(err)
+	}
+	return lookup.Email, passwordModel.GetPasswordHash(), nil
+}
+
 func (d *userDao[U]) CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, username, locale string) (int, error) {
 	var user U
 	passwordModel, ok := any(user).(UserWithPassword)

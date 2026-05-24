@@ -10,9 +10,10 @@ import (
 
 // Config holds the configuration for auth service
 type Config struct {
-	SecretKey                   string          `validate:"required" log:"-"`
-	AccessTokenValiditySeconds  int             `validate:"required"`
-	RefreshTokenValiditySeconds int             `validate:"required"`
+	SecretKey                   string `validate:"required" log:"-"`
+	AccessTokenValiditySeconds  int    `validate:"required"`
+	RefreshTokenValiditySeconds int    `validate:"required"`
+	Superadmins                 []string
 	Organisation                string
 	Password                    passwordConfig
 	OTP                         otpConfig       `validate:"required"`

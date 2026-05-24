@@ -10,11 +10,13 @@ import (
 )
 
 const (
-	CtxKeyTokenClaims string = "tokenClaims"
-	CtxKeyUserID      string = "userID"
-	audienceLogin     string = "login"
-	audienceRefresh   string = "refresh"
-	audienceReset     string = "password_reset"
+	CtxKeyTokenClaims   string = "tokenClaims"
+	CtxKeyUserID        string = "userID"
+	CtxKeyActorUserID   string = "actorUserID"
+	CtxKeyImpersonating string = "impersonating"
+	audienceLogin       string = "login"
+	audienceRefresh     string = "refresh"
+	audienceReset       string = "password_reset"
 
 	// otp for config.TestPhone to allow app reviews
 	testOTP = "000000"

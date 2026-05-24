@@ -5,11 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"strconv"
 	"math/big"
 	"net/mail"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt"
@@ -23,6 +23,7 @@ type UserDao interface {
 	Create(ctx context.Context, u SigupInfo) (userID int, err error)
 	GetByPhone(ctx context.Context, phone string) (userID int, err error)
 	GetByEmail(ctx context.Context, email string) (userID int, err error)
+	GetByID(ctx context.Context, userID int) (email string, passwordHash string, err error)
 	GetByEmailWithPassword(ctx context.Context, email string) (userID int, passwordHash string, err error)
 	CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, username, locale string) (userID int, err error)
 	GetByUsername(ctx context.Context, username string) (userID int, err error)
@@ -158,7 +159,6 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Token
 	if err != nil {
 		return nil, apperrors.NewInvalidParamsError("token", err)
 	}
-
 	return s.generateToken(subject)
 }
 

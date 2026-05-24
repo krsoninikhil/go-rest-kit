@@ -114,3 +114,30 @@ func UserID(c *gin.Context) int {
 		return 0
 	}
 }
+
+func ActorUserID(c *gin.Context) int {
+	val, exists := c.Get(CtxKeyActorUserID)
+	if !exists || val == nil {
+		return UserID(c)
+	}
+	switch v := val.(type) {
+	case string:
+		id, _ := strconv.Atoi(v)
+		return id
+	case int:
+		return v
+	case int64:
+		return int(v)
+	default:
+		return UserID(c)
+	}
+}
+
+func IsImpersonating(c *gin.Context) bool {
+	val, exists := c.Get(CtxKeyImpersonating)
+	if !exists || val == nil {
+		return false
+	}
+	flag, ok := val.(bool)
+	return ok && flag
+}
