@@ -172,18 +172,13 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 		return apperrors.NewServerError(errors.New("password reset is not configured"))
 	}
 
-	userID, passwordHash, err := s.userDao.GetByEmailWithPassword(ctx, email)
+	userID, _, err := s.userDao.GetByEmailWithPassword(ctx, email)
 	if err != nil {
 		if _, ok := err.(apperrors.NotFoundError); ok {
 			return nil
 		}
 		return apperrors.NewServerError(fmt.Errorf("error looking up reset email: %v", err))
 	}
-	if strings.TrimSpace(passwordHash) == "" {
-		// OAuth-only users: keep generic success, no reset email.
-		return nil
-	}
-
 	token, err := s.generatePasswordResetToken(userID)
 	if err != nil {
 		return apperrors.NewServerError(err)

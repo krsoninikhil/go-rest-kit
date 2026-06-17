@@ -133,6 +133,38 @@ func TestPasswordResetRequestIsGenericForUnknownEmail(t *testing.T) {
 	}
 }
 
+func TestPasswordResetRequestSendsForOAuthOnlyUser(t *testing.T) {
+	dao := &mockResetDao{
+		userIDByEmail: map[string]int{
+			"oauth@example.com": 99,
+		},
+		passwordByID: map[int]string{
+			99: "",
+		},
+	}
+	emailSender := &mockResetEmailSender{}
+	svc := newResetServiceForTest(dao, emailSender)
+
+	err := svc.RequestPasswordReset(context.Background(), "oauth@example.com")
+	if err != nil {
+		t.Fatalf("expected reset request success for oauth-only user, got error: %v", err)
+	}
+	if emailSender.lastTo != "oauth@example.com" {
+		t.Fatalf("expected reset email recipient oauth@example.com, got %s", emailSender.lastTo)
+	}
+	linkToken := extractTokenFromMessage(t, emailSender.lastMessage)
+	if linkToken == "" {
+		t.Fatalf("expected non-empty token for oauth-only user")
+	}
+	err = svc.ConfirmPasswordReset(context.Background(), linkToken, "NewPassw0rd!")
+	if err != nil {
+		t.Fatalf("confirm reset returned error for oauth-only user: %v", err)
+	}
+	if _, ok := dao.updated[99]; !ok {
+		t.Fatalf("expected password update for oauth-only user")
+	}
+}
+
 func TestPasswordResetRejectsAccessTokenAudience(t *testing.T) {
 	dao := &mockResetDao{
 		userIDByEmail: map[string]int{
