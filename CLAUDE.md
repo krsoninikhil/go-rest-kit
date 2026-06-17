@@ -76,7 +76,8 @@ These functions convert FastAPI-style handlers `func(*gin.Context, Req) (*Res, e
 #### `pgdb` - PostgreSQL Database Utilities
 - `BaseModel`: Embeddable struct with ID, CreatedAt, UpdatedAt, DeletedAt (soft delete support)
 - `NewPGConnection(ctx, config)`: Creates GORM DB connection
-- `Paginate(page, sortField)`: GORM scope for pagination (used in DAO List methods)
+- `Paginate(page, sortField)`: GORM scope for ascending cursor pagination (used in DAO List methods)
+- `PaginateNewestFirst(page, sortField)`: GORM scope for descending/newest-first cursor pagination
 - Pagination supports both cursor-based (After) and offset-based (Page) approaches
 
 #### `auth` - Authentication System
