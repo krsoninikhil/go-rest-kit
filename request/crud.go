@@ -18,8 +18,8 @@ type (
 )
 
 func BindCreate[R, S any](handler createHandlerFunc[R, S]) gin.HandlerFunc {
-	var req R
 	return func(c *gin.Context) {
+		var req R
 		if err := bindRequestParams[any, R](c, nil, &req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -30,8 +30,8 @@ func BindCreate[R, S any](handler createHandlerFunc[R, S]) gin.HandlerFunc {
 }
 
 func BindGet[P, S any](handler getHandlerFunc[P, S]) gin.HandlerFunc {
-	var params P
 	return func(c *gin.Context) {
+		var params P
 		if err := bindRequestParams[P, any](c, &params, nil); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -42,11 +42,11 @@ func BindGet[P, S any](handler getHandlerFunc[P, S]) gin.HandlerFunc {
 }
 
 func BindUpdate[P, R any](handler updateHandlerFunc[P, R]) gin.HandlerFunc {
-	var (
-		req    R
-		params P
-	)
 	return func(c *gin.Context) {
+		var (
+			req    R
+			params P
+		)
 		if err := bindRequestParams(c, &params, &req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -57,8 +57,8 @@ func BindUpdate[P, R any](handler updateHandlerFunc[P, R]) gin.HandlerFunc {
 }
 
 func BindDelete[P any](handler deleteHandlerFunc[P]) gin.HandlerFunc {
-	var params P
 	return func(c *gin.Context) {
+		var params P
 		if err := bindRequestParams[P, any](c, &params, nil); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -69,11 +69,11 @@ func BindDelete[P any](handler deleteHandlerFunc[P]) gin.HandlerFunc {
 }
 
 func BindNestedCreate[P, R, S any](handler createNestedHandlerFunc[P, R, S]) gin.HandlerFunc {
-	var (
-		req    R
-		params P
-	)
 	return func(c *gin.Context) {
+		var (
+			req    R
+			params P
+		)
 		if err := bindRequestParams(c, &params, &req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
