@@ -9,7 +9,9 @@ type PermissionChecker interface {
 }
 
 type UserLookup interface {
-	GetByID(ctx context.Context, userID int) (email string, passwordHash string, err error)
+	GetByID(ctx context.Context, userID int) (email string, err error)
+	GetByEmail(ctx context.Context, email string) (userID int, err error)
+	GetByEmailWithPassword(ctx context.Context, email string) (userID int, passwordHash string, err error)
 }
 
 type AuditEvent struct {
@@ -26,9 +28,9 @@ type AuditSink interface {
 }
 
 type StartRequest struct {
-	TargetUserID  int    `json:"target_user_id" binding:"required,min=1"`
+	TargetEmail   string `json:"target_email" binding:"required,email"`
 	AdminPassword string `json:"admin_password" binding:"required,min=8,max=128"`
-	Comment       string `json:"comment"`
+	Comment       string `json:"comment" binding:"required,min=3,max=500"`
 }
 
 type StartResponse struct {

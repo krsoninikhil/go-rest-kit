@@ -45,18 +45,35 @@ func (s *Service) Start(ctx context.Context, actorUserID int, req StartRequest, 
 	if actorUserID <= 0 {
 		return nil, apperrors.NewPermissionError("user")
 	}
-	if req.TargetUserID <= 0 {
-		return nil, apperrors.NewInvalidParamsError("target_user_id", errors.New("target_user_id is required"))
+	targetEmail := strings.TrimSpace(strings.ToLower(req.TargetEmail))
+	if targetEmail == "" {
+		return nil, apperrors.NewInvalidParamsError("target_email", errors.New("target_email is required"))
 	}
 	if strings.TrimSpace(req.AdminPassword) == "" {
 		return nil, apperrors.NewInvalidParamsError("admin_password", errors.New("admin_password is required"))
 	}
+	comment := strings.TrimSpace(req.Comment)
+	if comment == "" {
+		return nil, apperrors.NewInvalidParamsError("comment", errors.New("comment is required"))
+	}
 
-	actorEmail, actorPasswordHash, err := s.userLookup.GetByID(ctx, actorUserID)
+	actorEmail, err := s.userLookup.GetByID(ctx, actorUserID)
 	if err != nil {
 		return nil, err
 	}
+	actorEmail = strings.TrimSpace(strings.ToLower(actorEmail))
+	if actorEmail == "" {
+		return nil, apperrors.NewPermissionError("impersonation")
+	}
+
 	if !s.permissions.CanImpersonate(actorUserID, actorEmail) {
+		return nil, apperrors.NewPermissionError("impersonation")
+	}
+	lookupID, actorPasswordHash, err := s.userLookup.GetByEmailWithPassword(ctx, actorEmail)
+	if err != nil {
+		return nil, err
+	}
+	if lookupID != actorUserID {
 		return nil, apperrors.NewPermissionError("impersonation")
 	}
 	if strings.TrimSpace(actorPasswordHash) == "" {
@@ -65,10 +82,11 @@ func (s *Service) Start(ctx context.Context, actorUserID int, req StartRequest, 
 	if err := bcrypt.CompareHashAndPassword([]byte(actorPasswordHash), []byte(req.AdminPassword)); err != nil {
 		return nil, apperrors.NewPermissionError("credentials")
 	}
-	if _, _, err := s.userLookup.GetByID(ctx, req.TargetUserID); err != nil {
+	targetUserID, err := s.userLookup.GetByEmail(ctx, targetEmail)
+	if err != nil {
 		return nil, err
 	}
-	token, err := s.issueToken(req.TargetUserID)
+	token, err := s.issueToken(targetUserID)
 	if err != nil {
 		return nil, apperrors.NewServerError(err)
 	}
@@ -76,8 +94,8 @@ func (s *Service) Start(ctx context.Context, actorUserID int, req StartRequest, 
 		ActorID:      actorUserID,
 		Action:       "IMPERSONATE",
 		Category:     "ADMIN",
-		Comment:      strings.TrimSpace(req.Comment),
-		TargetUserID: req.TargetUserID,
+		Comment:      comment,
+		TargetUserID: targetUserID,
 		IP:           ip,
 	})
 	return token, nil

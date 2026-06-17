@@ -2,6 +2,7 @@ package impersonation
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/krsoninikhil/go-rest-kit/auth"
@@ -18,11 +19,25 @@ type fakeUserLookup struct {
 	existsByUser map[int]bool
 }
 
-func (f fakeUserLookup) GetByID(ctx context.Context, userID int) (string, string, error) {
-	if f.existsByUser[userID] {
-		return f.email, f.password, nil
+func (f fakeUserLookup) GetByID(ctx context.Context, userID int) (string, error) {
+	if userID == 10 && f.existsByUser[10] {
+		return "admin@example.com", nil
 	}
-	return "", "", context.Canceled
+	return "", context.Canceled
+}
+
+func (f fakeUserLookup) GetByEmailWithPassword(ctx context.Context, email string) (int, string, error) {
+	if strings.EqualFold(email, "admin@example.com") && f.existsByUser[10] {
+		return 10, f.password, nil
+	}
+	return 0, "", context.Canceled
+}
+
+func (f fakeUserLookup) GetByEmail(ctx context.Context, email string) (int, error) {
+	if strings.EqualFold(email, "target@example.com") && f.existsByUser[77] {
+		return 77, nil
+	}
+	return 0, context.Canceled
 }
 
 func TestStartAndStopImpersonation(t *testing.T) {
@@ -41,8 +56,9 @@ func TestStartAndStopImpersonation(t *testing.T) {
 	}, nil)
 
 	token, err := svc.Start(context.Background(), 10, StartRequest{
-		TargetUserID:  77,
+		TargetEmail:   "target@example.com",
 		AdminPassword: "password123",
+		Comment:       "Verify an issue",
 	}, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("start failed: %v", err)

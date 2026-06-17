@@ -31,6 +31,10 @@ type UserWithUsername interface {
 	SetUsername(string) UserModel
 }
 
+type UserWithEmail interface {
+	GetEmail() string
+}
+
 type userDao[U UserModel] struct {
 	*sqldb.PGDB
 }
@@ -90,6 +94,22 @@ func (d *userDao[U]) GetByEmail(ctx context.Context, email string) (int, error) 
 	return user.PK(), nil
 }
 
+func (d *userDao[U]) GetByID(ctx context.Context, userID int) (string, error) {
+	var user U
+	err := d.PGDB.DB(ctx).Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", apperrors.NewNotFoundError(user.ResourceName())
+		}
+		return "", apperrors.NewServerError(err)
+	}
+	emailUser, ok := any(user).(UserWithEmail)
+	if !ok {
+		return "", apperrors.NewServerError(errors.New("user model does not expose email"))
+	}
+	return emailUser.GetEmail(), nil
+}
+
 func (d *userDao[U]) UpsertByEmail(ctx context.Context, oauthInfo OAuthUserInfo) (int, error) {
 	userID, err := d.GetByEmail(ctx, oauthInfo.Email)
 	if err == nil {
@@ -132,28 +152,6 @@ func (d *userDao[U]) GetByEmailWithPassword(ctx context.Context, email string) (
 		return 0, "", apperrors.NewServerError(errors.New("user model does not support password authentication"))
 	}
 	return user.PK(), passwordModel.GetPasswordHash(), nil
-}
-
-func (d *userDao[U]) GetByID(ctx context.Context, userID int) (string, string, error) {
-	var user U
-	err := d.PGDB.DB(ctx).Where("id = ?", userID).First(&user).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", "", apperrors.NewNotFoundError(user.ResourceName())
-		}
-		return "", "", apperrors.NewServerError(err)
-	}
-	passwordModel, ok := any(user).(UserWithPassword)
-	if !ok {
-		return "", "", apperrors.NewServerError(errors.New("user model does not support password authentication"))
-	}
-	var lookup struct {
-		Email string `gorm:"column:email"`
-	}
-	if err := d.PGDB.DB(ctx).Model(&user).Select("email").Where("id = ?", userID).Take(&lookup).Error; err != nil {
-		return "", "", apperrors.NewServerError(err)
-	}
-	return lookup.Email, passwordModel.GetPasswordHash(), nil
 }
 
 func (d *userDao[U]) CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, username, locale string) (int, error) {

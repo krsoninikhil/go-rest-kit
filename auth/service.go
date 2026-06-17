@@ -23,7 +23,6 @@ type UserDao interface {
 	Create(ctx context.Context, u SigupInfo) (userID int, err error)
 	GetByPhone(ctx context.Context, phone string) (userID int, err error)
 	GetByEmail(ctx context.Context, email string) (userID int, err error)
-	GetByID(ctx context.Context, userID int) (email string, passwordHash string, err error)
 	GetByEmailWithPassword(ctx context.Context, email string) (userID int, passwordHash string, err error)
 	CreateWithEmailAndPassword(ctx context.Context, email, name, passwordHash, username, locale string) (userID int, err error)
 	GetByUsername(ctx context.Context, username string) (userID int, err error)
@@ -110,6 +109,9 @@ func (s *Service) UpsertOAuthUser(ctx context.Context, oauthInfo OAuthUserInfo) 
 }
 
 func (s *Service) PasswordSignupOrLogin(ctx context.Context, email, password, locale string) (*Token, error) {
+	if !s.userDao.SupportsPassword() {
+		return nil, apperrors.NewServerError(errors.New("password authentication is not supported"))
+	}
 	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
 	if normalizedEmail == "" {
 		return nil, apperrors.NewInvalidParamsError("email", errors.New("email is required"))

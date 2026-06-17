@@ -26,12 +26,6 @@ func (m *mockResetDao) GetByPhone(ctx context.Context, phone string) (int, error
 func (m *mockResetDao) GetByEmail(ctx context.Context, email string) (int, error) {
 	return 0, apperrors.NewNotFoundError("user")
 }
-func (m *mockResetDao) GetByID(ctx context.Context, userID int) (string, string, error) {
-	if password, ok := m.passwordByID[userID]; ok {
-		return "", password, nil
-	}
-	return "", "", apperrors.NewNotFoundError("user")
-}
 func (m *mockResetDao) GetByEmailWithPassword(ctx context.Context, email string) (int, string, error) {
 	userID, ok := m.userIDByEmail[email]
 	if !ok {

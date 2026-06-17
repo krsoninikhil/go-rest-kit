@@ -10,9 +10,6 @@ type testRefreshDao struct{}
 func (d *testRefreshDao) Create(ctx context.Context, u SigupInfo) (int, error)      { return 0, nil }
 func (d *testRefreshDao) GetByPhone(ctx context.Context, phone string) (int, error) { return 0, nil }
 func (d *testRefreshDao) GetByEmail(ctx context.Context, email string) (int, error) { return 0, nil }
-func (d *testRefreshDao) GetByID(ctx context.Context, userID int) (string, string, error) {
-	return "", "", nil
-}
 func (d *testRefreshDao) GetByEmailWithPassword(ctx context.Context, email string) (int, string, error) {
 	return 0, "", nil
 }
